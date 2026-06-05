@@ -1,0 +1,205 @@
+import { chatCompletion, textOf, type ChatMessage, type ToolDef } from '@/lib/openrouter'
+import { getAvailableSlots, createAppointment } from '@/features/appointments/services'
+import type { BusinessConfig, CatalogItemWithMedia, MediaType } from '@/shared/types/database'
+
+export interface Attachment {
+  url: string
+  type: MediaType
+  caption: string
+}
+
+export interface AgentResult {
+  reply: string
+  attachments: Attachment[]
+}
+
+const AR_TZ = 'America/Argentina/Cordoba'
+const money = (n: number) =>
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
+
+function nowAR(): string {
+  return new Intl.DateTimeFormat('es-AR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: AR_TZ,
+  }).format(new Date())
+}
+
+function catalogToText(items: CatalogItemWithMedia[]): string {
+  const active = items.filter((i) => i.active)
+  if (active.length === 0) return '(sin ítems cargados)'
+  return active
+    .map((i) => {
+      const tipo = i.kind === 'product' ? 'Producto' : 'Servicio'
+      const extra = i.kind === 'service' ? `${i.duration_min} min` : i.stock != null ? `stock ${i.stock}` : 'a consultar'
+      const attrs = (i.attributes ?? []).map((a) => `${a.label}: ${a.value}`).join(', ')
+      const media = i.media?.length ? ` [tiene ${i.media.length} archivo(s) para enviar]` : ''
+      return `- [${tipo}] ${i.name} — ${money(i.price)} — ${extra}${i.description ? ` — ${i.description}` : ''}${attrs ? ` (${attrs})` : ''}${media}`
+    })
+    .join('\n')
+}
+
+export function buildSystemPrompt(params: {
+  config: BusinessConfig
+  organizationName: string
+  catalog: CatalogItemWithMedia[]
+}): string {
+  const { config, organizationName, catalog } = params
+  const faqs = (config.faqs ?? []).map((f) => `P: ${f.q}\nR: ${f.a}`).join('\n')
+
+  return `${config.system_prompt}
+
+DATOS DEL NEGOCIO
+- Negocio: ${config.business_name || organizationName}
+- Hoy es: ${nowAR()} (hora de Argentina)
+- Tono: ${config.tone}
+
+CATÁLOGO (productos y servicios)
+${catalogToText(catalog)}
+
+PREGUNTAS FRECUENTES
+${faqs || '(sin FAQs)'}
+
+INSTRUCCIONES OPERATIVAS
+- Respondé en español rioplatense, breve y natural, estilo WhatsApp. Usá emojis con moderación.
+- Para ver horarios disponibles usá la herramienta consultar_disponibilidad. NUNCA inventes horarios.
+- Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO devuelto por consultar_disponibilidad (campo inicio_iso), y el nombre y teléfono del cliente. Pedí esos datos si faltan y confirmá antes de reservar.
+- Si el cliente quiere ver un producto/servicio que tiene fotos o videos, usá enviar_material para mandárselos.
+- Si te mandan una foto, miralá y respondé en consecuencia.
+- No inventes precios, stock ni datos que no estén arriba. Si no sabés algo, ofrecé confirmarlo.
+- Si no podés resolver o piden una persona, derivá con: "${config.handoff_message}".`
+}
+
+const TOOLS: ToolDef[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'consultar_disponibilidad',
+      description: 'Devuelve los próximos horarios disponibles para un servicio. Usar antes de ofrecer turnos.',
+      parameters: {
+        type: 'object',
+        properties: { servicio: { type: 'string', description: 'Nombre del servicio a consultar' } },
+        required: ['servicio'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'reservar_turno',
+      description: 'Reserva un turno en un horario disponible. Confirmar datos con el cliente antes de llamar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          servicio: { type: 'string' },
+          inicio_iso: { type: 'string', description: 'Horario exacto (campo inicio_iso de consultar_disponibilidad)' },
+          nombre_cliente: { type: 'string' },
+          telefono: { type: 'string' },
+        },
+        required: ['servicio', 'inicio_iso', 'nombre_cliente', 'telefono'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'enviar_material',
+      description: 'Envía al cliente las fotos/videos cargados de un producto o servicio.',
+      parameters: {
+        type: 'object',
+        properties: { item: { type: 'string', description: 'Nombre del producto o servicio' } },
+        required: ['item'],
+      },
+    },
+  },
+]
+
+function findItem(catalog: CatalogItemWithMedia[], query: string): CatalogItemWithMedia | undefined {
+  const q = query.toLowerCase().trim()
+  return (
+    catalog.find((i) => i.name.toLowerCase() === q) ??
+    catalog.find((i) => i.name.toLowerCase().includes(q) || q.includes(i.name.toLowerCase()))
+  )
+}
+
+async function executeTool(
+  name: string,
+  args: Record<string, unknown>,
+  catalog: CatalogItemWithMedia[],
+  attachments: Attachment[],
+): Promise<string> {
+  if (name === 'consultar_disponibilidad') {
+    const item = findItem(catalog, String(args.servicio ?? ''))
+    if (!item || item.kind !== 'service') return JSON.stringify({ error: 'Servicio no encontrado en el catálogo.' })
+    const days = await getAvailableSlots(item.id, 7)
+    const compact = days.slice(0, 5).map((d) => ({
+      dia: new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: AR_TZ }).format(new Date(`${d.date}T12:00:00-03:00`)),
+      // Todos los horarios del día (mañana y tarde), cap alto para no ocultar disponibilidad
+      horarios: d.slots.slice(0, 24).map((s) => ({ hora: s.label, inicio_iso: s.startsAt })),
+    }))
+    if (compact.length === 0) return JSON.stringify({ servicio: item.name, mensaje: 'No hay horarios disponibles próximamente.' })
+    return JSON.stringify({ servicio: item.name, duracion_min: item.duration_min, disponibilidad: compact })
+  }
+
+  if (name === 'reservar_turno') {
+    const item = findItem(catalog, String(args.servicio ?? ''))
+    if (!item || item.kind !== 'service') return JSON.stringify({ ok: false, error: 'Servicio no encontrado.' })
+    const res = await createAppointment({
+      serviceId: item.id,
+      startsAt: String(args.inicio_iso ?? ''),
+      contactName: String(args.nombre_cliente ?? ''),
+      contactPhone: String(args.telefono ?? ''),
+    })
+    if (!res.ok) return JSON.stringify({ ok: false, error: res.error })
+    return JSON.stringify({ ok: true, mensaje: `Turno confirmado para ${item.name}.` })
+  }
+
+  if (name === 'enviar_material') {
+    const item = findItem(catalog, String(args.item ?? ''))
+    if (!item) return JSON.stringify({ error: 'Ítem no encontrado.' })
+    if (!item.media || item.media.length === 0) return JSON.stringify({ enviados: 0, mensaje: 'Ese ítem no tiene fotos/videos cargados.' })
+    for (const m of item.media) {
+      attachments.push({ url: m.url, type: m.type, caption: item.name })
+    }
+    return JSON.stringify({ enviados: item.media.length, mensaje: `Enviadas ${item.media.length} archivo(s) de ${item.name}.` })
+  }
+
+  return JSON.stringify({ error: 'Herramienta desconocida' })
+}
+
+/**
+ * Ejecuta un turno del agente: corre el loop de tool calling hasta la respuesta final.
+ */
+export async function runAgentTurn(params: {
+  systemPrompt: string
+  history: ChatMessage[]
+  catalog: CatalogItemWithMedia[]
+}): Promise<AgentResult> {
+  const messages: ChatMessage[] = [
+    { role: 'system', content: params.systemPrompt },
+    ...params.history,
+  ]
+  const attachments: Attachment[] = []
+
+  for (let step = 0; step < 5; step++) {
+    const msg = await chatCompletion({ messages, tools: TOOLS })
+
+    if (msg.tool_calls && msg.tool_calls.length > 0) {
+      messages.push(msg)
+      for (const tc of msg.tool_calls) {
+        let args: Record<string, unknown> = {}
+        try {
+          args = JSON.parse(tc.function.arguments || '{}')
+        } catch {
+          args = {}
+        }
+        const result = await executeTool(tc.function.name, args, params.catalog, attachments)
+        messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.function.name, content: result })
+      }
+      continue
+    }
+
+    return { reply: textOf(msg.content) || '…', attachments }
+  }
+
+  return { reply: 'Disculpá, tuve un problema procesando eso. ¿Lo intentamos de nuevo?', attachments }
+}

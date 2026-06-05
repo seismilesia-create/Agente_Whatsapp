@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design System: Bento-Grid (SaaS Factory)
+ * Tema claro, profesional, data-native. Tokens en HSL para shadcn-style theming.
+ */
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --muted: 210 16% 93%;
+    --muted-foreground: 215 16% 47%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 243 75% 59%;
+
+    /* Primary = indigo (acciones del operador / marca) */
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Acentos semanticos para el historial de conversaciones */
+    --ai: 160 84% 39%;            /* emerald  -> mensajes generados por la IA */
+    --ai-foreground: 0 0% 100%;
+    --human: 243 75% 59%;         /* indigo   -> mensajes del operador humano */
+    --human-foreground: 0 0% 100%;
+    --contact: 215 16% 47%;       /* gris     -> mensajes del cliente final */
+    --contact-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+}
