@@ -3,6 +3,7 @@ import { getSessionContext } from '@/shared/lib/get-session'
 import { getBusinessConfig } from '@/features/config/services'
 import { getCatalogItems } from '@/features/catalog/services'
 import { buildSystemPrompt, runAgentTurn } from '@/features/ai-agent/agent'
+import { getAvailableSlots, createAppointment } from '@/features/appointments/services'
 import { createSimConversation, addMessage } from '@/features/conversations/services'
 import type { ChatMessage } from '@/lib/openrouter'
 
@@ -62,7 +63,15 @@ export async function POST(req: Request) {
 
   let result
   try {
-    result = await runAgentTurn({ systemPrompt, history, catalog })
+    result = await runAgentTurn({
+      systemPrompt,
+      history,
+      catalog,
+      deps: {
+        getSlots: (serviceId) => getAvailableSlots(serviceId, 7),
+        book: (input) => createAppointment(input).then((r) => ({ ok: r.ok, error: r.error })),
+      },
+    })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Error del agente' },

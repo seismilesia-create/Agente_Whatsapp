@@ -1,9 +1,41 @@
 /**
- * Cliente mínimo de OpenRouter (API compatible con OpenAI).
- * Soporta contenido multimodal (texto + imágenes) y tool calling.
+ * Cliente de LLM (API compatible con OpenAI). Soporta multimodal + tool calling.
+ * Provider configurable vía env LLM_PROVIDER:
+ *   - 'openrouter' (default): nube, usa OPENROUTER_API_KEY + OPENROUTER_MODEL
+ *   - 'ollama': local, usa OLLAMA_BASE_URL (default http://localhost:11434/v1) + OLLAMA_MODEL
  */
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const DEFAULT_MODEL = 'google/gemini-2.5-flash'
+
+interface LlmConfig {
+  url: string
+  apiKey: string
+  model: string
+  headers: Record<string, string>
+}
+
+function getLlmConfig(): LlmConfig {
+  const provider = process.env.LLM_PROVIDER ?? 'openrouter'
+
+  if (provider === 'ollama') {
+    const base = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/v1'
+    return {
+      url: `${base.replace(/\/$/, '')}/chat/completions`,
+      apiKey: 'ollama', // Ollama no requiere auth
+      model: process.env.OLLAMA_MODEL ?? 'gemma4:26b',
+      headers: {},
+    }
+  }
+
+  return {
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    apiKey: process.env.OPENROUTER_API_KEY ?? '',
+    model: process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL,
+    headers: {
+      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+      'X-Title': 'Agente WhatsApp',
+    },
+  }
+}
 
 export type ContentPart =
   | { type: 'text'; text: string }
@@ -38,35 +70,33 @@ export async function chatCompletion(params: {
   temperature?: number
   maxTokens?: number
 }): Promise<ChatMessage> {
-  const apiKey = process.env.OPENROUTER_API_KEY
-  if (!apiKey) throw new Error('Falta OPENROUTER_API_KEY')
+  const cfg = getLlmConfig()
 
-  const res = await fetch(OPENROUTER_URL, {
+  const res = await fetch(cfg.url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${cfg.apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
-      'X-Title': 'Agente WhatsApp',
+      ...cfg.headers,
     },
     body: JSON.stringify({
-      model: process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL,
+      model: cfg.model,
       messages: params.messages,
       tools: params.tools,
       tool_choice: params.tools && params.tools.length > 0 ? 'auto' : undefined,
       temperature: params.temperature ?? 0.4,
-      max_tokens: params.maxTokens ?? 900,
+      max_tokens: params.maxTokens ?? 1200,
     }),
   })
 
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`)
+    throw new Error(`LLM ${res.status}: ${text.slice(0, 300)}`)
   }
 
   const data = await res.json()
   const msg = data.choices?.[0]?.message as ChatMessage | undefined
-  if (!msg) throw new Error('OpenRouter: respuesta vacía')
+  if (!msg) throw new Error('LLM: respuesta vacía')
   return msg
 }
 

@@ -8,7 +8,7 @@ const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: '◧' },
   { href: '/agenda', label: 'Agenda', icon: '📅' },
   { href: '/catalogo', label: 'Productos y Servicios', icon: '📦' },
-  { href: '/simulador', label: 'Simulador', icon: '🧪' },
+  { href: '/demo', label: 'Modo demo', icon: '🎬' },
   { href: '/conversations', label: 'Conversaciones', icon: '💬' },
   { href: '/config', label: 'Configuración', icon: '⚙︎' },
   { href: '/whatsapp', label: 'Conexión', icon: '🟢' },

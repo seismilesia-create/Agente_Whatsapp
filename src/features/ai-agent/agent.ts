@@ -1,5 +1,5 @@
 import { chatCompletion, textOf, type ChatMessage, type ToolDef } from '@/lib/openrouter'
-import { getAvailableSlots, createAppointment } from '@/features/appointments/services'
+import type { DayAvailability } from '@/features/appointments/services'
 import type { BusinessConfig, CatalogItemWithMedia, MediaType } from '@/shared/types/database'
 
 export interface Attachment {
@@ -11,6 +11,21 @@ export interface Attachment {
 export interface AgentResult {
   reply: string
   attachments: Attachment[]
+}
+
+/**
+ * Funciones de datos que el agente usa, inyectadas según el contexto:
+ * - simulador: usan la sesión del usuario (RLS)
+ * - webhook WhatsApp: usan el admin client + organizationId explícito
+ */
+export interface AgentDeps {
+  getSlots: (serviceId: string) => Promise<DayAvailability[]>
+  book: (input: {
+    serviceId: string
+    startsAt: string
+    contactName?: string
+    contactPhone: string
+  }) => Promise<{ ok: boolean; error?: string }>
 }
 
 const AR_TZ = 'America/Argentina/Cordoba'
@@ -126,11 +141,12 @@ async function executeTool(
   args: Record<string, unknown>,
   catalog: CatalogItemWithMedia[],
   attachments: Attachment[],
+  deps: AgentDeps,
 ): Promise<string> {
   if (name === 'consultar_disponibilidad') {
     const item = findItem(catalog, String(args.servicio ?? ''))
     if (!item || item.kind !== 'service') return JSON.stringify({ error: 'Servicio no encontrado en el catálogo.' })
-    const days = await getAvailableSlots(item.id, 7)
+    const days = await deps.getSlots(item.id)
     const compact = days.slice(0, 5).map((d) => ({
       dia: new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: AR_TZ }).format(new Date(`${d.date}T12:00:00-03:00`)),
       // Todos los horarios del día (mañana y tarde), cap alto para no ocultar disponibilidad
@@ -143,7 +159,7 @@ async function executeTool(
   if (name === 'reservar_turno') {
     const item = findItem(catalog, String(args.servicio ?? ''))
     if (!item || item.kind !== 'service') return JSON.stringify({ ok: false, error: 'Servicio no encontrado.' })
-    const res = await createAppointment({
+    const res = await deps.book({
       serviceId: item.id,
       startsAt: String(args.inicio_iso ?? ''),
       contactName: String(args.nombre_cliente ?? ''),
@@ -173,6 +189,7 @@ export async function runAgentTurn(params: {
   systemPrompt: string
   history: ChatMessage[]
   catalog: CatalogItemWithMedia[]
+  deps: AgentDeps
 }): Promise<AgentResult> {
   const messages: ChatMessage[] = [
     { role: 'system', content: params.systemPrompt },
@@ -192,7 +209,7 @@ export async function runAgentTurn(params: {
         } catch {
           args = {}
         }
-        const result = await executeTool(tc.function.name, args, params.catalog, attachments)
+        const result = await executeTool(tc.function.name, args, params.catalog, attachments, params.deps)
         messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.function.name, content: result })
       }
       continue
