@@ -9,7 +9,7 @@ import crypto from 'node:crypto'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const CAL_BASE = 'https://www.googleapis.com/calendar/v3/calendars'
 const SCOPE = 'https://www.googleapis.com/auth/calendar'
-export const AR_TZ = 'America/Argentina/Cordoba'
+export const AR_TZ = 'America/Argentina/Buenos_Aires'
 
 export function isCalendarConfigured(): boolean {
   return Boolean(

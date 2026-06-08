@@ -8,7 +8,7 @@ import { sendWhatsAppText } from '@/lib/whatsapp'
  * (X horas antes), una sola vez (marca `confirmation_sent_at`). Lo dispara el cron.
  */
 
-const AR_TZ = 'America/Argentina/Cordoba'
+const AR_TZ = 'America/Argentina/Buenos_Aires'
 const DEFAULT_TEMPLATE =
   '¡Hola {nombre}! 👋 Te recordamos tu turno de {servicio} el {fecha} a las {hora} hs. ¿Lo confirmás? Respondé *SÍ* para confirmar o *NO* para cancelar. ¡Gracias!'
 

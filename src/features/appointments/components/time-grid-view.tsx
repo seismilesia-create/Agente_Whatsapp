@@ -27,7 +27,7 @@ interface Props {
   onCreateAt: (d: PlainDate, minutes: number) => void
 }
 
-const HOUR_PX = 48
+const HOUR_PX = 56
 const toMin = (t: string) => {
   const [h, m] = t.slice(0, 5).split(':').map(Number)
   return h * 60 + m
@@ -140,7 +140,8 @@ export function TimeGridView({ days, appointments, today, getDayHours, onSelectA
               ))}
               {appts.map((a) => {
                 const top = ((arMinutesOf(a.starts_at) - startMin) / 60) * HOUR_PX
-                const height = Math.max(((a.service?.duration_min ?? 30) / 60) * HOUR_PX, 18)
+                const height = Math.max(((a.service?.duration_min ?? 30) / 60) * HOUR_PX, 22)
+                const showClient = height >= 42
                 const cancelled = a.status === 'cancelled'
                 const color = a.service?.color ?? '#6366f1'
                 return (
@@ -153,16 +154,18 @@ export function TimeGridView({ days, appointments, today, getDayHours, onSelectA
                     }}
                     style={{ top, height, backgroundColor: `${color}22`, borderLeftColor: color }}
                     className={cn(
-                      'absolute inset-x-0.5 overflow-hidden rounded border-l-[3px] px-1 py-0.5 text-left text-[11px] leading-tight hover:brightness-95',
+                      'absolute inset-x-0.5 flex flex-col overflow-hidden rounded border-l-[3px] px-1 py-0.5 text-left text-[11px] leading-tight hover:brightness-95',
                       cancelled && 'line-through opacity-60',
                     )}
                   >
-                    <span className="block font-medium">
+                    <span className="truncate font-medium">
                       {arTimeOf(a.starts_at)} {a.service?.name ?? 'Turno'}
                     </span>
-                    <span className="block truncate text-muted-foreground">
-                      {a.contact?.name || a.contact?.phone || ''}
-                    </span>
+                    {showClient && (a.contact?.name || a.contact?.phone) && (
+                      <span className="truncate text-muted-foreground">
+                        {a.contact?.name || a.contact?.phone}
+                      </span>
+                    )}
                   </button>
                 )
               })}

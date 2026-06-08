@@ -35,7 +35,7 @@ export interface AgentDeps {
   }) => Promise<{ ok: boolean; error?: string }>
 }
 
-const AR_TZ = 'America/Argentina/Cordoba'
+const AR_TZ = 'America/Argentina/Buenos_Aires'
 const money = (n: number) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n)
 

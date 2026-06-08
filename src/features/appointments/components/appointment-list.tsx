@@ -32,7 +32,7 @@ const fmt = (iso: string) =>
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: 'America/Argentina/Cordoba',
+    timeZone: 'America/Argentina/Buenos_Aires',
   }).format(new Date(iso))
 
 function Row({ appt }: { appt: UpcomingAppointment }) {

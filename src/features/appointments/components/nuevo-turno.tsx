@@ -18,7 +18,7 @@ const dayLabel = (date: string) =>
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    timeZone: 'America/Argentina/Cordoba',
+    timeZone: 'America/Argentina/Buenos_Aires',
   }).format(new Date(`${date}T12:00:00-03:00`))
 
 export function NuevoTurno({

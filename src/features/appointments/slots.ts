@@ -4,7 +4,7 @@
  */
 
 export const AR_OFFSET = '-03:00'
-export const AR_TZ = 'America/Argentina/Cordoba'
+export const AR_TZ = 'America/Argentina/Buenos_Aires'
 
 /** Hasta cuántos días para adelante el agente ofrece turnos. */
 export const BOOKING_WINDOW_DAYS = 60
