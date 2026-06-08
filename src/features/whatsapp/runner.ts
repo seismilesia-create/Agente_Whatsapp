@@ -91,7 +91,15 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
   ])
   if (!config) return
 
-  const systemPrompt = buildSystemPrompt({ config, organizationName: org.name, catalog, hours, exceptions })
+  const systemPrompt = buildSystemPrompt({
+    config,
+    organizationName: org.name,
+    catalog,
+    hours,
+    exceptions,
+    contactPhone: incoming.from,
+    contactName: incoming.contactName,
+  })
   const history = await loadHistory(db, conversationId, 12)
 
   // Imagen entrante → multimodal (visión)
@@ -116,7 +124,8 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
       catalog,
       deps: {
         getSlots: (serviceId) => getAvailableSlotsAdmin(db, orgId, serviceId),
-        book: (input) => createAppointmentAdmin(db, orgId, org.name, input),
+        // El teléfono real es el número de WhatsApp del cliente, no lo que extraiga la IA.
+        book: (input) => createAppointmentAdmin(db, orgId, org.name, { ...input, contactPhone: incoming.from }),
       },
     })
   } catch (e) {

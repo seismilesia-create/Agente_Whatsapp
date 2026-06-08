@@ -105,9 +105,19 @@ export function buildSystemPrompt(params: {
   catalog: CatalogItemWithMedia[]
   hours: BusinessHour[]
   exceptions: ScheduleException[]
+  contactPhone?: string
+  contactName?: string
 }): string {
-  const { config, organizationName, catalog, hours, exceptions } = params
+  const { config, organizationName, catalog, hours, exceptions, contactPhone, contactName } = params
   const faqs = (config.faqs ?? []).map((f) => `P: ${f.q}\nR: ${f.a}`).join('\n')
+
+  // En WhatsApp ya conocemos el teléfono del cliente (es el número desde el que escribe).
+  const clienteBlock = contactPhone
+    ? `DATOS DEL CLIENTE (te escribe por WhatsApp)\n- Teléfono: ${contactPhone} — YA lo tenés (es el número desde el que te escribe). NUNCA se lo pidas; usalo para reservar.\n${contactName ? `- Nombre (de su WhatsApp): ${contactName}\n` : ''}\n`
+    : ''
+  const reservarInstruction = contactPhone
+    ? '- Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO (campo inicio_iso de consultar_disponibilidad) y el nombre del cliente. El TELÉFONO ya lo tenés (ver DATOS DEL CLIENTE): pasalo en el campo telefono y NO se lo pidas. Confirmá antes de reservar.'
+    : '- Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO devuelto por consultar_disponibilidad (campo inicio_iso), y el nombre y teléfono del cliente. Pedí esos datos si faltan y confirmá antes de reservar.'
 
   return `${config.system_prompt}
 
@@ -116,7 +126,7 @@ DATOS DEL NEGOCIO
 - Hoy es: ${nowAR()} (hora de Argentina)
 - Tono: ${config.tone}
 
-HORARIOS DE ATENCIÓN
+${clienteBlock}HORARIOS DE ATENCIÓN
 ${scheduleToText(hours, exceptions)}
 
 CATÁLOGO (productos y servicios)
@@ -129,7 +139,7 @@ INSTRUCCIONES OPERATIVAS
 - Respondé en español rioplatense, breve y natural, estilo WhatsApp. Usá emojis con moderación.
 - Para ver horarios disponibles usá la herramienta consultar_disponibilidad. NUNCA inventes horarios.
 - Los HORARIOS DE ATENCIÓN de arriba son la referencia general; informalos si te preguntan. Nunca ofrezcas turnos en días cerrados ni en fechas marcadas como cerradas (feriados, vacaciones).
-- Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO devuelto por consultar_disponibilidad (campo inicio_iso), y el nombre y teléfono del cliente. Pedí esos datos si faltan y confirmá antes de reservar.
+${reservarInstruction}
 - Si el cliente quiere ver un producto/servicio que tiene fotos o videos, usá enviar_material para mandárselos.
 - Si te mandan una foto, miralá y respondé en consecuencia.
 - No inventes precios, stock ni datos que no estén arriba. Si no sabés algo, ofrecé confirmarlo.
