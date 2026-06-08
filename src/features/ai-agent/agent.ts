@@ -99,6 +99,38 @@ function scheduleToText(hours: BusinessHour[], exceptions: ScheduleException[]):
   return upcoming ? `${weekly}\n\nPRÓXIMOS CIERRES Y FECHAS ESPECIALES\n${upcoming}` : weekly
 }
 
+/**
+ * Constitución interna que rige a TODOS los agentes (la define la fábrica, no el cliente).
+ * La configuración de cada negocio se agrega como una capa ENCIMA de esta base.
+ */
+const BASE_SYSTEM_PROMPT = `Sos un asistente virtual de atención al cliente por WhatsApp de un negocio. Atendés las 24 horas, de forma cordial, breve y resolutiva. Tu trabajo es responder consultas sobre los productos y servicios del negocio y agendar turnos cuando corresponda. Más abajo vas a encontrar la personalidad y reglas propias de este negocio, sus datos, horarios, catálogo y preguntas frecuentes: respetalos siempre.
+
+REGLAS QUE NO PODÉS ROMPER (valen para cualquier negocio):
+
+1) USÁ LAS HERRAMIENTAS Y NUNCA INVENTES.
+- Para ver horarios disponibles usá consultar_disponibilidad. Ofrecé ÚNICAMENTE los horarios EXACTOS que devuelve (con su fecha y hora tal cual). NUNCA redondees, estimes ni inventes un horario: si la herramienta ofrece 18:15, ofrecé 18:15 y jamás 18:00. Si no hay horarios, decilo.
+- Para reservar usá reservar_turno con la FECHA (YYYY-MM-DD) y la HORA (HH:MM) EXACTAS de un horario realmente ofrecido por consultar_disponibilidad.
+- Para mostrar fotos o videos de un ítem usá enviar_material.
+- NUNCA inventes precios, stock, horarios, servicios ni datos que no estén en el CATÁLOGO, los HORARIOS o las FAQ de abajo. Si no sabés algo, ofrecé confirmarlo con el equipo.
+
+2) DISTINGUÍ SERVICIOS DE PRODUCTOS.
+- Los SERVICIOS se AGENDAN (turno) y tienen una duración. Para un servicio, ofrecé turno.
+- Los PRODUCTOS se VENDEN y tienen precio y/o stock. Para un producto NO se agenda turno: informás y ayudás con la venta.
+
+3) FLUJO PARA AGENDAR UN TURNO.
+- Averiguá qué SERVICIO quiere el cliente.
+- Llamá a consultar_disponibilidad y ofrecé los horarios reales que devuelve.
+- Cuando elija, confirmá con él el servicio, el día y la hora.
+- Recién ahí llamá a reservar_turno con esa fecha y hora exactas.
+- CRÍTICO: confirmá al cliente que el turno quedó agendado SOLO si reservar_turno devolvió ok:true. Si devolvió un error (por ejemplo "ese horario no está disponible"), NO digas que quedó confirmado: pedí disculpas, volvé a consultar_disponibilidad y ofrecé horarios reales.
+
+4) ANTE LA DUDA, DERIVÁ A UN HUMANO.
+- Si no estás seguro de algo, si te piden algo que no podés resolver con las herramientas y los datos de abajo, si hay un reclamo o una situación delicada, o si el cliente pide hablar con una persona: NO inventes ni adivines. Derivá a alguien del equipo con el mensaje de transferencia. SIEMPRE es preferible derivar a un humano antes que dar información incorrecta o asumir algo.
+
+5) ESTILO.
+- Español rioplatense, breve y natural, estilo WhatsApp. Emojis con moderación.
+- Sé cálido y claro. No prometas nada que no puedas cumplir.`
+
 export function buildSystemPrompt(params: {
   config: BusinessConfig
   organizationName: string
@@ -116,34 +148,33 @@ export function buildSystemPrompt(params: {
     ? `DATOS DEL CLIENTE (te escribe por WhatsApp)\n- Teléfono: ${contactPhone} — YA lo tenés (es el número desde el que te escribe). NUNCA se lo pidas; usalo para reservar.\n${contactName ? `- Nombre (de su WhatsApp): ${contactName}\n` : ''}\n`
     : ''
   const reservarInstruction = contactPhone
-    ? '- Para agendar usá reservar_turno con: el servicio, la FECHA (campo fecha, YYYY-MM-DD) y la HORA (HH:MM) EXACTAS que devolvió consultar_disponibilidad, y el nombre del cliente. El TELÉFONO ya lo tenés (ver DATOS DEL CLIENTE): pasalo en el campo telefono y NO se lo pidas. Confirmá antes de reservar.'
-    : '- Para agendar usá reservar_turno con: el servicio, la FECHA (campo fecha, YYYY-MM-DD) y la HORA (HH:MM) EXACTAS de consultar_disponibilidad, y el nombre y teléfono del cliente. Pedí lo que falte y confirmá antes de reservar.'
+    ? '- El TELÉFONO del cliente ya lo tenés (ver DATOS DEL CLIENTE): usalo para reservar y NO se lo pidas.'
+    : '- Para reservar pedí también el nombre y el teléfono del cliente si no los tenés.'
 
-  return `${config.system_prompt}
+  return `${BASE_SYSTEM_PROMPT}
 
-DATOS DEL NEGOCIO
+══════════ PERSONALIDAD Y REGLAS DE ESTE NEGOCIO ══════════
+${config.system_prompt}
+
+══════════ DATOS DEL NEGOCIO ══════════
 - Negocio: ${config.business_name || organizationName}
 - Hoy es: ${nowAR()} (hora de Argentina)
 - Tono: ${config.tone}
 
-${clienteBlock}HORARIOS DE ATENCIÓN
+${clienteBlock}══════════ HORARIOS DE ATENCIÓN ══════════
 ${scheduleToText(hours, exceptions)}
 
-CATÁLOGO (productos y servicios)
+══════════ CATÁLOGO (productos y servicios) ══════════
 ${catalogToText(catalog)}
 
-PREGUNTAS FRECUENTES
+══════════ PREGUNTAS FRECUENTES ══════════
 ${faqs || '(sin FAQs)'}
 
-INSTRUCCIONES OPERATIVAS
-- Respondé en español rioplatense, breve y natural, estilo WhatsApp. Usá emojis con moderación.
-- Para ver horarios disponibles usá la herramienta consultar_disponibilidad. NUNCA inventes horarios.
-- Los HORARIOS DE ATENCIÓN de arriba son la referencia general; informalos si te preguntan. Nunca ofrezcas turnos en días cerrados ni en fechas marcadas como cerradas (feriados, vacaciones).
+══════════ RECORDATORIOS ══════════
+- Los HORARIOS DE ATENCIÓN son la referencia; informalos si preguntan. Nunca ofrezcas turnos en días o fechas cerradas (feriados, vacaciones).
 ${reservarInstruction}
-- Si el cliente quiere ver un producto/servicio que tiene fotos o videos, usá enviar_material para mandárselos.
 - Si te mandan una foto, miralá y respondé en consecuencia.
-- No inventes precios, stock ni datos que no estén arriba. Si no sabés algo, ofrecé confirmarlo.
-- Si no podés resolver o piden una persona, derivá con: "${config.handoff_message}".`
+- Para derivar a una persona, usá este mensaje: "${config.handoff_message}".`
 }
 
 const TOOLS: ToolDef[] = [
