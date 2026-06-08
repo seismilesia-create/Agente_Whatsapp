@@ -5,7 +5,9 @@ import { createClient } from '@/lib/supabase/server'
 import {
   getAvailableSlots,
   createAppointment,
+  getAppointmentsInRange,
   type DayAvailability,
+  type CalendarAppointment,
 } from './services'
 import { deleteCalendarEvent } from '@/lib/google-calendar'
 import type { AppointmentStatus } from '@/shared/types/database'
@@ -13,6 +15,14 @@ import type { AppointmentStatus } from '@/shared/types/database'
 export async function getSlotsAction(serviceId: string): Promise<DayAvailability[]> {
   if (!serviceId) return []
   return getAvailableSlots(serviceId, 10)
+}
+
+/** Turnos de un rango (para navegar mes/semana en el calendario sin recargar la página). */
+export async function getRangeAppointmentsAction(
+  fromIso: string,
+  toIso: string,
+): Promise<CalendarAppointment[]> {
+  return getAppointmentsInRange(fromIso, toIso)
 }
 
 export interface BookState {

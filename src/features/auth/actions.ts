@@ -24,7 +24,16 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
     return { error: 'Email o contraseña incorrectos' }
   }
 
-  redirect('/dashboard')
+  // El super-admin entra directo a su panel god-mode; los clientes, a su dashboard.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle()
+    : { data: null }
+  const isSuper = Boolean((profile as { is_super_admin: boolean } | null)?.is_super_admin)
+
+  redirect(isSuper ? '/admin' : '/dashboard')
 }
 
 export async function signupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {

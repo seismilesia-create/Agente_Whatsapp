@@ -43,7 +43,6 @@ export async function applyPresetAction(presetKey: string): Promise<PresetState>
       greeting_message: preset.greeting_message,
       handoff_message: preset.handoff_message,
       faqs: preset.faqs,
-      default_service_duration_min: preset.default_service_duration_min,
     })
     .eq('organization_id', orgId)
   if (bcErr) return { error: 'No se pudo aplicar la configuración' }

@@ -6,6 +6,9 @@
 export const AR_OFFSET = '-03:00'
 export const AR_TZ = 'America/Argentina/Cordoba'
 
+/** Hasta cuántos días para adelante el agente ofrece turnos. */
+export const BOOKING_WINDOW_DAYS = 60
+
 export interface Slot {
   startsAt: string // ISO UTC
   endsAt: string // ISO UTC
@@ -93,4 +96,53 @@ export function arDateString(baseMs: number, offsetDays = 0): string {
 export function weekdayOf(date: string): number {
   // Mediodía local para evitar bordes de día por offset
   return new Date(`${date}T12:00:00${AR_OFFSET}`).getDay()
+}
+
+/** Excepción de calendario en forma mínima para el motor de slots. */
+export interface ScheduleExceptionLite {
+  start_date: string // 'YYYY-MM-DD'
+  end_date: string // 'YYYY-MM-DD'
+  kind: 'closed' | 'custom' | 'open'
+  ranges: { open: string; close: string }[]
+}
+
+/**
+ * Devuelve la excepción que controla una fecha, o null si no hay ninguna.
+ * Precedencia cuando varias cubren la fecha: closed > custom > open.
+ * (Comparación lexicográfica válida para fechas 'YYYY-MM-DD'.)
+ */
+export function pickException(
+  date: string,
+  exceptions: ScheduleExceptionLite[],
+): ScheduleExceptionLite | null {
+  const covering = exceptions.filter((e) => e.start_date <= date && date <= e.end_date)
+  if (covering.length === 0) return null
+  return (
+    covering.find((e) => e.kind === 'closed') ??
+    covering.find((e) => e.kind === 'custom') ??
+    covering.find((e) => e.kind === 'open') ??
+    null
+  )
+}
+
+/**
+ * Resuelve los bloques horarios efectivos de un día, combinando el horario semanal
+ * con las excepciones. Devuelve `closed: true` si ese día no se atiende.
+ */
+export function resolveDayHours(params: {
+  date: string
+  weekday: number
+  weekly: { weekday: number; open_time: string; close_time: string }[]
+  exceptions: ScheduleExceptionLite[]
+}): { closed: boolean; hours: { open_time: string; close_time: string }[] } {
+  const exc = pickException(params.date, params.exceptions)
+  if (exc?.kind === 'closed') return { closed: true, hours: [] }
+  if (exc?.kind === 'custom') {
+    return { closed: false, hours: exc.ranges.map((r) => ({ open_time: r.open, close_time: r.close })) }
+  }
+  // 'open' o sin excepción → horario semanal habitual
+  const hours = params.weekly
+    .filter((h) => h.weekday === params.weekday)
+    .map((h) => ({ open_time: h.open_time, close_time: h.close_time }))
+  return { closed: false, hours }
 }

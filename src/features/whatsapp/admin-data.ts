@@ -1,8 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeSlotsForDate, arDateString, weekdayOf } from '@/features/appointments/slots'
+import {
+  computeSlotsForDate,
+  arDateString,
+  weekdayOf,
+  resolveDayHours,
+  pickException,
+  BOOKING_WINDOW_DAYS,
+  type ScheduleExceptionLite,
+} from '@/features/appointments/slots'
 import type { DayAvailability } from '@/features/appointments/services'
 import { isCalendarConfigured, createCalendarEvent } from '@/lib/google-calendar'
-import type { BusinessConfig, CatalogItemWithMedia, Service, BusinessHour } from '@/shared/types/database'
+import type { BusinessConfig, CatalogItemWithMedia, Service, BusinessHour, ScheduleException } from '@/shared/types/database'
 
 /**
  * Versiones "admin" (service role + organizationId explícito) de los loaders y del booking.
@@ -30,11 +38,35 @@ export async function getCatalogItemsAdmin(
   return (data as CatalogItemWithMedia[]) ?? []
 }
 
+export async function getBusinessHoursAdmin(
+  db: SupabaseClient,
+  orgId: string,
+): Promise<BusinessHour[]> {
+  const { data } = await db
+    .from('business_hours')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('weekday')
+  return (data as BusinessHour[]) ?? []
+}
+
+export async function getScheduleExceptionsAdmin(
+  db: SupabaseClient,
+  orgId: string,
+): Promise<ScheduleException[]> {
+  const { data } = await db
+    .from('business_schedule_exceptions')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('start_date')
+  return (data as ScheduleException[]) ?? []
+}
+
 export async function getAvailableSlotsAdmin(
   db: SupabaseClient,
   orgId: string,
   serviceId: string,
-  days = 7,
+  days = BOOKING_WINDOW_DAYS,
 ): Promise<DayAvailability[]> {
   const { data: service } = await db
     .from('services')
@@ -45,11 +77,10 @@ export async function getAvailableSlotsAdmin(
   if (!service) return []
   const svc = service as Service
 
-  const { data: hoursData } = await db
-    .from('business_hours')
-    .select('*')
-    .eq('organization_id', orgId)
-  const hours = (hoursData as BusinessHour[]) ?? []
+  const [hours, exceptions] = await Promise.all([
+    getBusinessHoursAdmin(db, orgId),
+    getScheduleExceptionsAdmin(db, orgId),
+  ])
 
   const nowMs = Date.now()
   const fromIso = new Date(nowMs).toISOString()
@@ -67,12 +98,12 @@ export async function getAvailableSlotsAdmin(
   for (let i = 0; i < days; i++) {
     const date = arDateString(nowMs, i)
     const weekday = weekdayOf(date)
-    const dayHours = hours.filter((h) => h.weekday === weekday)
-    if (dayHours.length === 0) continue
+    const { closed, hours: dayHours } = resolveDayHours({ date, weekday, weekly: hours, exceptions })
+    if (closed || dayHours.length === 0) continue
     const slots = computeSlotsForDate({
       date,
       durationMin: svc.duration_min,
-      hours: dayHours.map((h) => ({ open_time: h.open_time, close_time: h.close_time })),
+      hours: dayHours,
       busy: busyRanges,
       nowMs,
     })
@@ -95,6 +126,18 @@ export async function createAppointmentAdmin(
     .single()
   if (!service) return { ok: false, error: 'Servicio no encontrado' }
   const svc = service as Service
+
+  // No agendar en una fecha cerrada (feriado/vacaciones), aún si el slot venía cacheado.
+  const startDate = arDateString(new Date(input.startsAt).getTime(), 0)
+  const { data: excRows } = await db
+    .from('business_schedule_exceptions')
+    .select('start_date, end_date, kind, ranges')
+    .eq('organization_id', orgId)
+    .lte('start_date', startDate)
+    .gte('end_date', startDate)
+  if (pickException(startDate, (excRows as ScheduleExceptionLite[]) ?? [])?.kind === 'closed') {
+    return { ok: false, error: 'Ese día el negocio está cerrado.' }
+  }
 
   const startMs = new Date(input.startsAt).getTime()
   const endsAt = new Date(startMs + svc.duration_min * 60_000).toISOString()

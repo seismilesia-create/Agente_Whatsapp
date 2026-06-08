@@ -1,0 +1,150 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "⚡ Panel de control" [ref=e5] [cursor=pointer]:
+          - /url: /admin
+          - generic [ref=e6]: ⚡
+          - generic [ref=e7]: Panel de control
+        - generic [ref=e8]: god-mode
+      - generic [ref=e9]:
+        - generic [ref=e10]: hector@seismilesia.com
+        - button "Cerrar sesión" [ref=e12] [cursor=pointer]
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - heading "Panel general" [level=1] [ref=e16]
+          - paragraph [ref=e17]: Vista global de todos los agentes que están corriendo.
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - paragraph [ref=e20]: "4"
+            - paragraph [ref=e21]: Clientes
+          - generic [ref=e22]:
+            - paragraph [ref=e23]: "4"
+            - paragraph [ref=e24]: Agentes activos
+          - generic [ref=e25]:
+            - paragraph [ref=e26]: "8"
+            - paragraph [ref=e27]: Conversaciones
+          - generic [ref=e28]:
+            - paragraph [ref=e29]: "25"
+            - paragraph [ref=e30]: Mensajes IA
+          - generic [ref=e31]:
+            - paragraph [ref=e32]: "0"
+            - paragraph [ref=e33]: Mensajes humano
+          - generic [ref=e34]:
+            - paragraph [ref=e35]: "2"
+            - paragraph [ref=e36]: Turnos
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - heading "Switch de demo" [level=3] [ref=e39]
+            - paragraph [ref=e40]: Qué agente responde en el número de WhatsApp de prueba, para las demos en vivo.
+          - generic [ref=e41]:
+            - button "Clínica Demo Catamarca" [ref=e42] [cursor=pointer]
+            - button "🟢 Barbería Demo" [ref=e43] [cursor=pointer]
+            - button "Estética Demo Belleza" [ref=e44] [cursor=pointer]
+            - button "Consultorio Demo Salud" [ref=e45] [cursor=pointer]
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - heading "Clientes" [level=3] [ref=e48]
+            - paragraph [ref=e49]: Cada negocio con sus métricas y los interruptores del agente y sus features.
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - generic [ref=e53]:
+                  - generic [ref=e54]:
+                    - generic [ref=e55]: Clínica Demo Catamarca
+                    - generic [ref=e56]: Ventas
+                    - generic [ref=e57]: free
+                  - paragraph [ref=e58]: owner@clinicademo.app · 0 serv. · 0 charlas · 0 turnos · 0 contactos · últ. —
+                - link "Ver detalle" [ref=e59] [cursor=pointer]:
+                  - /url: /admin/clientes/9b00084d-5ce9-4c16-a50c-2502c154a5be
+                  - button "Ver detalle" [ref=e60]
+              - generic [ref=e62]:
+                - button "Agente activo Responde por WhatsApp" [ref=e63] [cursor=pointer]:
+                  - generic [ref=e64]:
+                    - generic [ref=e65]: Agente activo
+                    - generic [ref=e66]: Responde por WhatsApp
+                - button "Confirmación de turno Recordatorio automático antes del turno para que el cliente confirme." [ref=e69] [cursor=pointer]:
+                  - generic [ref=e70]:
+                    - generic [ref=e71]: Confirmación de turno
+                    - generic [ref=e72]: Recordatorio automático antes del turno para que el cliente confirme.
+                - button "Google Calendar add-on · próximamente" [ref=e75] [cursor=pointer]:
+                  - generic [ref=e76]:
+                    - generic [ref=e77]: Google Calendar
+                    - generic [ref=e78]: add-on · próximamente
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic [ref=e83]:
+                  - generic [ref=e84]:
+                    - generic [ref=e85]: Barbería Demo
+                    - generic [ref=e86]: Turnos
+                    - generic [ref=e87]: free
+                    - generic [ref=e88]: activo en demo
+                  - paragraph [ref=e89]: peluqueria@demo.app · 7 serv. · 4 charlas · 1 turnos · 3 contactos · últ. 7/6, 08:52 a. m.
+                - link "Ver detalle" [ref=e90] [cursor=pointer]:
+                  - /url: /admin/clientes/8bf75707-992c-418c-bb57-7ca08b2704c6
+                  - button "Ver detalle" [ref=e91]
+              - generic [ref=e93]:
+                - button "Agente activo Responde por WhatsApp" [ref=e94] [cursor=pointer]:
+                  - generic [ref=e95]:
+                    - generic [ref=e96]: Agente activo
+                    - generic [ref=e97]: Responde por WhatsApp
+                - button "Confirmación de turno Recordatorio automático antes del turno para que el cliente confirme." [ref=e100] [cursor=pointer]:
+                  - generic [ref=e101]:
+                    - generic [ref=e102]: Confirmación de turno
+                    - generic [ref=e103]: Recordatorio automático antes del turno para que el cliente confirme.
+                - button "Google Calendar add-on · próximamente" [ref=e106] [cursor=pointer]:
+                  - generic [ref=e107]:
+                    - generic [ref=e108]: Google Calendar
+                    - generic [ref=e109]: add-on · próximamente
+            - generic [ref=e112]:
+              - generic [ref=e113]:
+                - generic [ref=e114]:
+                  - generic [ref=e115]:
+                    - generic [ref=e116]: Estética Demo Belleza
+                    - generic [ref=e117]: Turnos
+                    - generic [ref=e118]: free
+                  - paragraph [ref=e119]: estetica@demo.app · 9 serv. · 0 charlas · 0 turnos · 0 contactos · últ. —
+                - link "Ver detalle" [ref=e120] [cursor=pointer]:
+                  - /url: /admin/clientes/c098a868-d2ec-4426-85bd-1b902a3a8098
+                  - button "Ver detalle" [ref=e121]
+              - generic [ref=e123]:
+                - button "Agente activo Responde por WhatsApp" [ref=e124] [cursor=pointer]:
+                  - generic [ref=e125]:
+                    - generic [ref=e126]: Agente activo
+                    - generic [ref=e127]: Responde por WhatsApp
+                - button "Confirmación de turno Recordatorio automático antes del turno para que el cliente confirme." [ref=e130] [cursor=pointer]:
+                  - generic [ref=e131]:
+                    - generic [ref=e132]: Confirmación de turno
+                    - generic [ref=e133]: Recordatorio automático antes del turno para que el cliente confirme.
+                - button "Google Calendar add-on · próximamente" [ref=e136] [cursor=pointer]:
+                  - generic [ref=e137]:
+                    - generic [ref=e138]: Google Calendar
+                    - generic [ref=e139]: add-on · próximamente
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - generic [ref=e144]:
+                  - generic [ref=e145]:
+                    - generic [ref=e146]: Consultorio Demo Salud
+                    - generic [ref=e147]: Turnos
+                    - generic [ref=e148]: free
+                  - paragraph [ref=e149]: salud@demo.app · 7 serv. · 4 charlas · 1 turnos · 1 contactos · últ. 7/6, 09:27 p. m.
+                - link "Ver detalle" [ref=e150] [cursor=pointer]:
+                  - /url: /admin/clientes/a86df806-ad50-4993-b345-b4ea6ee95905
+                  - button "Ver detalle" [ref=e151]
+              - generic [ref=e153]:
+                - button "Agente activo Responde por WhatsApp" [ref=e154] [cursor=pointer]:
+                  - generic [ref=e155]:
+                    - generic [ref=e156]: Agente activo
+                    - generic [ref=e157]: Responde por WhatsApp
+                - button "Confirmación de turno Recordatorio automático antes del turno para que el cliente confirme." [ref=e160] [cursor=pointer]:
+                  - generic [ref=e161]:
+                    - generic [ref=e162]: Confirmación de turno
+                    - generic [ref=e163]: Recordatorio automático antes del turno para que el cliente confirme.
+                - button "Google Calendar add-on · próximamente" [ref=e166] [cursor=pointer]:
+                  - generic [ref=e167]:
+                    - generic [ref=e168]: Google Calendar
+                    - generic [ref=e169]: add-on · próximamente
+  - button "Open Next.js Dev Tools" [ref=e177] [cursor=pointer]:
+    - img [ref=e178]
+  - alert [ref=e181]

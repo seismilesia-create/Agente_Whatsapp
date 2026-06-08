@@ -6,6 +6,8 @@ import { Topbar } from '@/features/dashboard/components/topbar'
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getSessionContext()
   if (!ctx) redirect('/login')
+  // El super-admin no usa el backend de cliente: va directo a su panel god-mode.
+  if (ctx.profile.is_super_admin) redirect('/admin')
 
   return (
     <div className="flex min-h-screen bg-background">

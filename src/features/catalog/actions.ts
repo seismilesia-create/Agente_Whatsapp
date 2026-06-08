@@ -39,6 +39,7 @@ export async function upsertItemAction(_prev: CatalogState, formData: FormData):
     stock: kind === 'product' && stockRaw !== null && stockRaw !== '' ? stockRaw : null,
     attributes: parseAttributes(formData.get('attributes')),
     active: formData.get('active') === 'on' || formData.get('active') === 'true',
+    color: formData.get('color') ?? '#6366f1',
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }
@@ -56,6 +57,7 @@ export async function upsertItemAction(_prev: CatalogState, formData: FormData):
     stock: parsed.data.stock,
     attributes: parsed.data.attributes,
     active: parsed.data.active,
+    color: parsed.data.color,
   }
 
   let resultId = itemId

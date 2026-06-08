@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from 'react'
 import { updateBusinessConfigAction, type ConfigState } from '../actions'
-import type { BusinessConfig, Faq } from '@/shared/types/database'
+import type { BusinessConfig, BusinessHour, Faq, ScheduleException } from '@/shared/types/database'
+import type { ArHoliday } from '../ar-holidays'
+import { ScheduleEditor } from './schedule-editor'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
@@ -12,7 +14,15 @@ import { SubmitButton } from '@/features/auth/components/submit-button'
 
 const initial: ConfigState = {}
 
-export function ConfigForm({ config }: { config: BusinessConfig }) {
+interface ConfigFormProps {
+  config: BusinessConfig
+  hours: BusinessHour[]
+  exceptions: ScheduleException[]
+  holidays: ArHoliday[]
+  confirmationEnabled: boolean
+}
+
+export function ConfigForm({ config, hours, exceptions, holidays, confirmationEnabled }: ConfigFormProps) {
   const [state, formAction] = useActionState(updateBusinessConfigAction, initial)
   const [faqs, setFaqs] = useState<Faq[]>(config.faqs ?? [])
 
@@ -74,20 +84,51 @@ export function ConfigForm({ config }: { config: BusinessConfig }) {
               <Input id="address" name="address" defaultValue={config.address ?? ''} placeholder="Av. Siempre Viva 123" />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="default_service_duration_min">Duración por servicio (min) — usado en turnos</Label>
-            <Input
-              id="default_service_duration_min"
-              name="default_service_duration_min"
-              type="number"
-              min={5}
-              max={480}
-              defaultValue={config.default_service_duration_min}
-              className="max-w-[160px]"
-            />
-          </div>
         </CardContent>
       </Card>
+
+      {/* Horarios, fechas especiales y feriados */}
+      <ScheduleEditor hours={hours} exceptions={exceptions} holidays={holidays} timeFormat={config.time_format} />
+
+      {/* Confirmación de turno (feature premium, habilitada por el super-admin) */}
+      {confirmationEnabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Confirmación de turno</CardTitle>
+            <CardDescription>
+              Recordatorio automático por WhatsApp para que el cliente confirme su turno. ✨ Plan premium.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="confirmation_hours_before">Enviar cuántas horas antes</Label>
+              <Input
+                id="confirmation_hours_before"
+                name="confirmation_hours_before"
+                type="number"
+                min={1}
+                max={168}
+                defaultValue={config.confirmation_hours_before ?? 24}
+                className="max-w-[160px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmation_message">Mensaje</Label>
+              <Textarea
+                id="confirmation_message"
+                name="confirmation_message"
+                defaultValue={config.confirmation_message ?? ''}
+                className="min-h-[100px]"
+                placeholder="¡Hola {nombre}! Te recordamos tu turno de {servicio} el {fecha} a las {hora}…"
+              />
+              <p className="text-xs text-muted-foreground">
+                Dejalo vacío para usar el texto por defecto. Variables: {'{nombre}'} {'{servicio}'} {'{fecha}'}{' '}
+                {'{hora}'} {'{negocio}'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* FAQs */}
       <Card>

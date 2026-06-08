@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState, useTransition } from 'react'
 import type { Service } from '@/shared/types/database'
 import { getSlotsAction, bookAppointmentAction, type BookState } from '../actions'
 import type { DayAvailability } from '../services'
+import { arMinutesOf } from '../calendar-utils'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
@@ -20,7 +21,13 @@ const dayLabel = (date: string) =>
     timeZone: 'America/Argentina/Cordoba',
   }).format(new Date(`${date}T12:00:00-03:00`))
 
-export function NuevoTurno({ services }: { services: Service[] }) {
+export function NuevoTurno({
+  services,
+  prefill,
+}: {
+  services: Service[]
+  prefill?: { date: string; minutes?: number } | null
+}) {
   const [serviceId, setServiceId] = useState(services[0]?.id ?? '')
   const [availability, setAvailability] = useState<DayAvailability[]>([])
   const [slot, setSlot] = useState<string>('')
@@ -34,6 +41,24 @@ export function NuevoTurno({ services }: { services: Service[] }) {
       setAvailability(await getSlotsAction(serviceId))
     })
   }, [serviceId])
+
+  // Click en el calendario → pre-selecciona el día/horario más cercano disponible.
+  useEffect(() => {
+    if (!prefill || availability.length === 0) return
+    const day = availability.find((d) => d.date === prefill.date)
+    if (!day || day.slots.length === 0) return
+    let chosen = day.slots[0]
+    if (prefill.minutes != null) {
+      const target = prefill.minutes
+      chosen = day.slots.reduce(
+        (best, s) =>
+          Math.abs(arMinutesOf(s.startsAt) - target) < Math.abs(arMinutesOf(best.startsAt) - target) ? s : best,
+        day.slots[0],
+      )
+    }
+    setSlot(chosen.startsAt)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill, availability])
 
   if (services.length === 0) {
     return (

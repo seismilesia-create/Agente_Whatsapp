@@ -14,6 +14,7 @@ export const catalogItemSchema = z.object({
   stock: z.union([z.coerce.number().int().min(0), z.null()]).default(null),
   attributes: z.array(catalogAttributeSchema).default([]),
   active: z.boolean().default(true),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color inválido').default('#6366f1'),
 })
 
 export type CatalogItemInput = z.infer<typeof catalogItemSchema>

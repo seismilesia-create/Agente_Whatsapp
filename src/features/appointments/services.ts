@@ -1,8 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { getSessionContext } from '@/shared/lib/get-session'
 import { isCalendarConfigured, createCalendarEvent } from '@/lib/google-calendar'
-import type { Service, BusinessHour, Appointment, Contact } from '@/shared/types/database'
-import { computeSlotsForDate, arDateString, weekdayOf, type Slot } from './slots'
+import type { Service, BusinessHour, Appointment, Contact, ScheduleException, AppointmentStatus } from '@/shared/types/database'
+import {
+  computeSlotsForDate,
+  arDateString,
+  weekdayOf,
+  resolveDayHours,
+  BOOKING_WINDOW_DAYS,
+  type Slot,
+} from './slots'
 
 export async function getServices(): Promise<Service[]> {
   const supabase = await createClient()
@@ -21,6 +28,15 @@ export async function getBusinessHours(): Promise<BusinessHour[]> {
   return (data as BusinessHour[]) ?? []
 }
 
+export async function getScheduleExceptions(): Promise<ScheduleException[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('business_schedule_exceptions')
+    .select('*')
+    .order('start_date')
+  return (data as ScheduleException[]) ?? []
+}
+
 export interface DayAvailability {
   date: string // YYYY-MM-DD
   weekday: number
@@ -31,7 +47,10 @@ export interface DayAvailability {
  * Disponibilidad de un servicio para los próximos `days` días.
  * Combina horarios + turnos ocupados con el motor de slots.
  */
-export async function getAvailableSlots(serviceId: string, days = 7): Promise<DayAvailability[]> {
+export async function getAvailableSlots(
+  serviceId: string,
+  days = BOOKING_WINDOW_DAYS,
+): Promise<DayAvailability[]> {
   const supabase = await createClient()
 
   const { data: service } = await supabase
@@ -41,7 +60,7 @@ export async function getAvailableSlots(serviceId: string, days = 7): Promise<Da
     .single<Service>()
   if (!service) return []
 
-  const hours = await getBusinessHours()
+  const [hours, exceptions] = await Promise.all([getBusinessHours(), getScheduleExceptions()])
   const nowMs = Date.now()
   const fromIso = new Date(nowMs).toISOString()
   const toIso = new Date(nowMs + days * 86_400_000).toISOString()
@@ -59,13 +78,13 @@ export async function getAvailableSlots(serviceId: string, days = 7): Promise<Da
   for (let i = 0; i < days; i++) {
     const date = arDateString(nowMs, i)
     const weekday = weekdayOf(date)
-    const dayHours = hours.filter((h) => h.weekday === weekday)
-    if (dayHours.length === 0) continue
+    const { closed, hours: dayHours } = resolveDayHours({ date, weekday, weekly: hours, exceptions })
+    if (closed || dayHours.length === 0) continue
 
     const slots = computeSlotsForDate({
       date,
       durationMin: service.duration_min,
-      hours: dayHours.map((h) => ({ open_time: h.open_time, close_time: h.close_time })),
+      hours: dayHours,
       busy: busyRanges,
       nowMs,
     })
@@ -90,6 +109,59 @@ export async function getUpcomingAppointments(limit = 50): Promise<UpcomingAppoi
     .order('starts_at')
     .limit(limit)
   return (data as UpcomingAppointment[]) ?? []
+}
+
+// ── Calendario (Agenda): turnos en un rango de fechas, con color de servicio ──
+
+export interface CalendarService {
+  id: string
+  name: string
+  color: string
+  duration_min: number
+}
+
+export interface CalendarAppointment {
+  id: string
+  starts_at: string
+  ends_at: string
+  status: AppointmentStatus
+  service: CalendarService | null
+  contact: { name: string | null; phone: string } | null
+}
+
+function firstOf<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
+}
+
+/** Turnos cuyo inicio cae en [fromIso, toIso] (RLS), con datos para pintarlos en el calendario. */
+export async function getAppointmentsInRange(fromIso: string, toIso: string): Promise<CalendarAppointment[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('appointments')
+    .select('id, starts_at, ends_at, status, service:services(id, name, color, duration_min), contact:contacts(name, phone)')
+    .gte('starts_at', fromIso)
+    .lte('starts_at', toIso)
+    .order('starts_at')
+
+  return ((data as unknown[]) ?? []).map((r) => {
+    const row = r as {
+      id: string
+      starts_at: string
+      ends_at: string
+      status: AppointmentStatus
+      service: unknown
+      contact: unknown
+    }
+    return {
+      id: row.id,
+      starts_at: row.starts_at,
+      ends_at: row.ends_at,
+      status: row.status,
+      service: firstOf(row.service as CalendarService | CalendarService[] | null),
+      contact: firstOf(row.contact as { name: string | null; phone: string } | { name: string | null; phone: string }[] | null),
+    }
+  })
 }
 
 /** Busca o crea un contacto por teléfono dentro de la organización. */

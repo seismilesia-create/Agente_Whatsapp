@@ -27,7 +27,6 @@ export interface IndustryPreset {
   system_prompt: string
   greeting_message: string
   handoff_message: string
-  default_service_duration_min: number
   faqs: Faq[]
   services: PresetService[]
   business_hours: PresetHour[]
@@ -88,7 +87,6 @@ REGLAS:
 - Sé breve, amable y respetuosa. Tratá de usted o de vos según cómo te hable el paciente.`,
     greeting_message: '¡Hola! 👋 Soy Sofía, del consultorio. ¿Querés sacar un turno o tenés una consulta?',
     handoff_message: 'Te paso con alguien del equipo para ayudarte mejor. Aguardá un momento por favor 🙌',
-    default_service_duration_min: 30,
     faqs: [
       { q: '¿Qué obras sociales atienden?', a: 'Trabajamos con las principales obras sociales y prepagas, y también atendemos particulares. Decime cuál tenés y lo confirmo.' },
       { q: '¿Dónde están ubicados?', a: 'Estamos en la dirección que figura en nuestro perfil. Si querés te paso la ubicación por el mapa.' },
@@ -125,7 +123,6 @@ REGLAS:
 - Tono amable, cercano y motivador, sin exagerar promesas de resultados.`,
     greeting_message: '¡Holaa! ✨ Soy Valen, de tu centro de estética. ¿Querés reservar un turno? Contame qué te gustaría hacerte 💆‍♀️',
     handoff_message: 'Te conecto con una de las chicas del equipo para verlo en detalle. ¡Ya te atienden! 💕',
-    default_service_duration_min: 60,
     faqs: [
       { q: '¿Cómo dejo reservado el turno?', a: 'Para confirmar el turno pedimos una seña; el resto lo abonás en el local. Así nos aseguramos de guardarte el horario.' },
       { q: '¿Cuánto sale cada tratamiento?', a: 'Cada servicio tiene su precio y duración; decime cuál te interesa y te paso el detalle.' },
@@ -162,7 +159,6 @@ REGLAS:
 - Mantené un tono relajado, canchero pero respetuoso. Mensajes breves, estilo WhatsApp.`,
     greeting_message: '¡Buenas! ✂️ Soy Tomi, de la peluquería. ¿Reservamos un turno? ¿Qué te hacés?',
     handoff_message: 'Te paso con el equipo para coordinar bien. ¡Ahí te responden! 🙌',
-    default_service_duration_min: 30,
     faqs: [
       { q: '¿Cuánto sale el corte?', a: 'Te paso la lista: cada servicio tiene su precio. ¿Qué te querés hacer?' },
       { q: '¿Cuánto tardan?', a: 'Un corte son unos 30 min; corte + barba, 45 min; color, alrededor de 90 min.' },

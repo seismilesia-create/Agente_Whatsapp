@@ -3,7 +3,12 @@ import { getSessionContext } from '@/shared/lib/get-session'
 import { getBusinessConfig } from '@/features/config/services'
 import { getCatalogItems } from '@/features/catalog/services'
 import { buildSystemPrompt, runAgentTurn } from '@/features/ai-agent/agent'
-import { getAvailableSlots, createAppointment } from '@/features/appointments/services'
+import {
+  getAvailableSlots,
+  createAppointment,
+  getBusinessHours,
+  getScheduleExceptions,
+} from '@/features/appointments/services'
 import { createSimConversation, addMessage } from '@/features/conversations/services'
 import type { ChatMessage } from '@/lib/openrouter'
 
@@ -24,13 +29,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
   }
 
-  const [config, catalog] = await Promise.all([getBusinessConfig(), getCatalogItems()])
+  const [config, catalog, hours, exceptions] = await Promise.all([
+    getBusinessConfig(),
+    getCatalogItems(),
+    getBusinessHours(),
+    getScheduleExceptions(),
+  ])
   if (!config) return NextResponse.json({ error: 'Sin configuración' }, { status: 400 })
 
   const systemPrompt = buildSystemPrompt({
     config,
     organizationName: ctx.organization.name,
     catalog,
+    hours,
+    exceptions,
   })
 
   // Construir el historial para el modelo; adjuntar imagen al último mensaje del usuario
@@ -68,7 +80,7 @@ export async function POST(req: Request) {
       history,
       catalog,
       deps: {
-        getSlots: (serviceId) => getAvailableSlots(serviceId, 7),
+        getSlots: (serviceId) => getAvailableSlots(serviceId),
         book: (input) => createAppointment(input).then((r) => ({ ok: r.ok, error: r.error })),
       },
     })

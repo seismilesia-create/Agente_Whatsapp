@@ -1,6 +1,13 @@
 import { chatCompletion, textOf, type ChatMessage, type ToolDef } from '@/lib/openrouter'
 import type { DayAvailability } from '@/features/appointments/services'
-import type { BusinessConfig, CatalogItemWithMedia, MediaType } from '@/shared/types/database'
+import { arDateString } from '@/features/appointments/slots'
+import type {
+  BusinessConfig,
+  BusinessHour,
+  CatalogItemWithMedia,
+  MediaType,
+  ScheduleException,
+} from '@/shared/types/database'
 
 export interface Attachment {
   url: string
@@ -53,12 +60,53 @@ function catalogToText(items: CatalogItemWithMedia[]): string {
     .join('\n')
 }
 
+const WEEKDAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]
+const hhmm = (t: string) => t.slice(0, 5)
+const ddmm = (iso: string) => {
+  const [, m, d] = iso.split('-')
+  return `${d}/${m}`
+}
+
+/** Texto de horarios semanales + próximos cierres/fechas especiales para el prompt. */
+function scheduleToText(hours: BusinessHour[], exceptions: ScheduleException[]): string {
+  const weekly = WEEKDAY_ORDER.map((wd) => {
+    const blocks = hours
+      .filter((h) => h.weekday === wd)
+      .sort((a, b) => a.open_time.localeCompare(b.open_time))
+      .map((h) => `${hhmm(h.open_time)}–${hhmm(h.close_time)}`)
+      .join(' y ')
+    return `- ${WEEKDAY_NAMES[wd]}: ${blocks || 'cerrado'}`
+  }).join('\n')
+
+  const today = arDateString(Date.now(), 0)
+  const upcoming = exceptions
+    .filter((e) => e.end_date >= today && e.kind !== 'open')
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))
+    .slice(0, 10)
+    .map((e) => {
+      const when =
+        e.start_date === e.end_date
+          ? ddmm(e.start_date)
+          : `del ${ddmm(e.start_date)} al ${ddmm(e.end_date)}`
+      const note = e.note ? ` (${e.note})` : ''
+      if (e.kind === 'closed') return `- ${when}: cerrado${note}`
+      const ranges = e.ranges.map((r) => `${r.open}–${r.close}`).join(' y ')
+      return `- ${when}: horario especial ${ranges}${note}`
+    })
+    .join('\n')
+
+  return upcoming ? `${weekly}\n\nPRÓXIMOS CIERRES Y FECHAS ESPECIALES\n${upcoming}` : weekly
+}
+
 export function buildSystemPrompt(params: {
   config: BusinessConfig
   organizationName: string
   catalog: CatalogItemWithMedia[]
+  hours: BusinessHour[]
+  exceptions: ScheduleException[]
 }): string {
-  const { config, organizationName, catalog } = params
+  const { config, organizationName, catalog, hours, exceptions } = params
   const faqs = (config.faqs ?? []).map((f) => `P: ${f.q}\nR: ${f.a}`).join('\n')
 
   return `${config.system_prompt}
@@ -67,6 +115,9 @@ DATOS DEL NEGOCIO
 - Negocio: ${config.business_name || organizationName}
 - Hoy es: ${nowAR()} (hora de Argentina)
 - Tono: ${config.tone}
+
+HORARIOS DE ATENCIÓN
+${scheduleToText(hours, exceptions)}
 
 CATÁLOGO (productos y servicios)
 ${catalogToText(catalog)}
@@ -77,6 +128,7 @@ ${faqs || '(sin FAQs)'}
 INSTRUCCIONES OPERATIVAS
 - Respondé en español rioplatense, breve y natural, estilo WhatsApp. Usá emojis con moderación.
 - Para ver horarios disponibles usá la herramienta consultar_disponibilidad. NUNCA inventes horarios.
+- Los HORARIOS DE ATENCIÓN de arriba son la referencia general; informalos si te preguntan. Nunca ofrezcas turnos en días cerrados ni en fechas marcadas como cerradas (feriados, vacaciones).
 - Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO devuelto por consultar_disponibilidad (campo inicio_iso), y el nombre y teléfono del cliente. Pedí esos datos si faltan y confirmá antes de reservar.
 - Si el cliente quiere ver un producto/servicio que tiene fotos o videos, usá enviar_material para mandárselos.
 - Si te mandan una foto, miralá y respondé en consecuencia.

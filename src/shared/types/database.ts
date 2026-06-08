@@ -20,6 +20,8 @@ export interface Organization {
   name: string
   vertical: OrgVertical
   plan: string
+  agent_enabled: boolean
+  features: Record<string, boolean>
   created_at: string
 }
 
@@ -29,6 +31,7 @@ export interface Profile {
   email: string | null
   full_name: string | null
   role: ProfileRole
+  is_super_admin: boolean
   created_at: string
 }
 
@@ -48,7 +51,9 @@ export interface BusinessConfig {
   faqs: Faq[]
   greeting_message: string
   handoff_message: string
-  default_service_duration_min: number
+  confirmation_hours_before: number
+  confirmation_message: string | null
+  time_format: '12h' | '24h'
   updated_at: string
   created_at: string
 }
@@ -70,7 +75,14 @@ export interface Contact {
   organization_id: string
   phone: string
   name: string | null
+  last_name: string | null
+  email: string | null
+  birthday: string | null // 'YYYY-MM-DD'
+  notes: string | null
+  tags: string[]
+  marketing_opt_in: boolean
   status: ContactStatus
+  last_interaction_at: string | null
   metadata: Record<string, unknown>
   created_at: string
 }
@@ -128,6 +140,7 @@ export interface Service {
   stock: number | null
   attributes: CatalogAttribute[]
   active: boolean
+  color: string
   created_at: string
 }
 
@@ -144,6 +157,31 @@ export interface BusinessHour {
   close_time: string
 }
 
+/** Rango horario 'HH:MM'–'HH:MM' dentro de un día. */
+export interface HoursRange {
+  open: string
+  close: string
+}
+
+export type ScheduleExceptionKind = 'closed' | 'custom' | 'open'
+
+/**
+ * Excepción de calendario que pisa el horario semanal para una fecha o rango:
+ * - 'closed': cerrado (feriado, vacaciones)
+ * - 'custom': horario especial (usa `ranges`)
+ * - 'open':   abierto normal (marcador de feriado confirmado "sí atiendo")
+ */
+export interface ScheduleException {
+  id: string
+  organization_id: string
+  start_date: string // 'YYYY-MM-DD'
+  end_date: string // 'YYYY-MM-DD'
+  kind: ScheduleExceptionKind
+  ranges: HoursRange[]
+  note: string | null
+  created_at: string
+}
+
 export interface Appointment {
   id: string
   organization_id: string
@@ -154,6 +192,7 @@ export interface Appointment {
   status: AppointmentStatus
   notes: string | null
   google_event_id: string | null
+  confirmation_sent_at: string | null
   created_at: string
   updated_at: string
 }

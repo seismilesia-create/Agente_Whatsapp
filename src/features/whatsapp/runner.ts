@@ -10,6 +10,8 @@ import { buildSystemPrompt, runAgentTurn } from '@/features/ai-agent/agent'
 import {
   getBusinessConfigAdmin,
   getCatalogItemsAdmin,
+  getBusinessHoursAdmin,
+  getScheduleExceptionsAdmin,
   getAvailableSlotsAdmin,
   createAppointmentAdmin,
 } from './admin-data'
@@ -59,6 +61,8 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
   const { data: orgRow } = await db.from('organizations').select('*').eq('id', orgId).single()
   const org = orgRow as Organization | null
   if (!org) return
+  // Interruptor maestro del super-admin: si el agente está desconectado, no responde.
+  if (!org.agent_enabled) return
 
   markAsRead({ phoneNumberId, accessToken, to: incoming.from, messageId: incoming.messageId })
 
@@ -78,14 +82,16 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
     .single()
   if ((conv as { bot_paused: boolean } | null)?.bot_paused) return
 
-  // Cargar config + catálogo + historial
-  const [config, catalog] = await Promise.all([
+  // Cargar config + catálogo + horarios + historial
+  const [config, catalog, hours, exceptions] = await Promise.all([
     getBusinessConfigAdmin(db, orgId),
     getCatalogItemsAdmin(db, orgId),
+    getBusinessHoursAdmin(db, orgId),
+    getScheduleExceptionsAdmin(db, orgId),
   ])
   if (!config) return
 
-  const systemPrompt = buildSystemPrompt({ config, organizationName: org.name, catalog })
+  const systemPrompt = buildSystemPrompt({ config, organizationName: org.name, catalog, hours, exceptions })
   const history = await loadHistory(db, conversationId, 12)
 
   // Imagen entrante → multimodal (visión)
@@ -109,7 +115,7 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
       history,
       catalog,
       deps: {
-        getSlots: (serviceId) => getAvailableSlotsAdmin(db, orgId, serviceId, 7),
+        getSlots: (serviceId) => getAvailableSlotsAdmin(db, orgId, serviceId),
         book: (input) => createAppointmentAdmin(db, orgId, org.name, input),
       },
     })

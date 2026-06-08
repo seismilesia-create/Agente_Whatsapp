@@ -4,14 +4,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/shared/lib/utils'
 
+// Menú del backend del cliente (lo que ve cada negocio suscripto).
+// "Modo demo" (/demo) y "Conexión" (/whatsapp) quedan fuera a propósito:
+//  - /demo es herramienta del owner para las demos en vivo (la ruta sigue activa, sin link acá).
+//  - la conexión del número de WhatsApp la provisiona el super-admin por detrás (Meta Business).
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: '◧' },
   { href: '/agenda', label: 'Agenda', icon: '📅' },
   { href: '/catalogo', label: 'Productos y Servicios', icon: '📦' },
-  { href: '/demo', label: 'Modo demo', icon: '🎬' },
   { href: '/conversations', label: 'Conversaciones', icon: '💬' },
+  { href: '/contactos', label: 'Contactos', icon: '👤' },
   { href: '/config', label: 'Configuración', icon: '⚙︎' },
-  { href: '/whatsapp', label: 'Conexión', icon: '🟢' },
 ]
 
 export function Sidebar() {

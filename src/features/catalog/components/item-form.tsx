@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react'
 import { upsertItemAction, type CatalogState } from '../actions'
 import type { CatalogItemWithMedia, CatalogAttribute, CatalogKind } from '@/shared/types/database'
+import { SERVICE_COLORS, DEFAULT_SERVICE_COLOR } from '../colors'
 import { MediaUploader } from './media-uploader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card'
 import { Input } from '@/shared/components/ui/input'
@@ -24,6 +25,7 @@ export function ItemForm({ organizationId, item, onDone }: Props) {
   const [kind, setKind] = useState<CatalogKind>(item?.kind ?? 'service')
   const [attrs, setAttrs] = useState<CatalogAttribute[]>(item?.attributes ?? [])
   const [active, setActive] = useState<boolean>(item?.active ?? true)
+  const [color, setColor] = useState<string>(item?.color ?? DEFAULT_SERVICE_COLOR)
 
   // tras crear/guardar, si era nuevo ahora hay itemId → permite subir media
   const savedId = state.itemId ?? item?.id ?? ''
@@ -93,6 +95,27 @@ export function ItemForm({ organizationId, item, onDone }: Props) {
               <Input id="stock" name="stock" type="number" min={0} defaultValue={item?.stock ?? 0} className="max-w-[160px]" />
             </div>
           )}
+
+          {/* Color para el calendario */}
+          <div className="space-y-2">
+            <Label>Color (para identificarlo en el calendario)</Label>
+            <input type="hidden" name="color" value={color} />
+            <div className="flex flex-wrap gap-2">
+              {SERVICE_COLORS.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  title={c.name}
+                  onClick={() => setColor(c.hex)}
+                  className={cn(
+                    'h-7 w-7 rounded-full border-2 transition-transform',
+                    color === c.hex ? 'scale-110 border-foreground' : 'border-transparent',
+                  )}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+            </div>
+          </div>
 
           {/* Características flexibles */}
           <div className="space-y-2">
