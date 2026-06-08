@@ -116,8 +116,8 @@ export function buildSystemPrompt(params: {
     ? `DATOS DEL CLIENTE (te escribe por WhatsApp)\n- Teléfono: ${contactPhone} — YA lo tenés (es el número desde el que te escribe). NUNCA se lo pidas; usalo para reservar.\n${contactName ? `- Nombre (de su WhatsApp): ${contactName}\n` : ''}\n`
     : ''
   const reservarInstruction = contactPhone
-    ? '- Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO (campo inicio_iso de consultar_disponibilidad) y el nombre del cliente. El TELÉFONO ya lo tenés (ver DATOS DEL CLIENTE): pasalo en el campo telefono y NO se lo pidas. Confirmá antes de reservar.'
-    : '- Para agendar usá reservar_turno: necesitás el servicio, un horario EXACTO devuelto por consultar_disponibilidad (campo inicio_iso), y el nombre y teléfono del cliente. Pedí esos datos si faltan y confirmá antes de reservar.'
+    ? '- Para agendar usá reservar_turno con: el servicio, la FECHA (campo fecha, YYYY-MM-DD) y la HORA (HH:MM) EXACTAS que devolvió consultar_disponibilidad, y el nombre del cliente. El TELÉFONO ya lo tenés (ver DATOS DEL CLIENTE): pasalo en el campo telefono y NO se lo pidas. Confirmá antes de reservar.'
+    : '- Para agendar usá reservar_turno con: el servicio, la FECHA (campo fecha, YYYY-MM-DD) y la HORA (HH:MM) EXACTAS de consultar_disponibilidad, y el nombre y teléfono del cliente. Pedí lo que falte y confirmá antes de reservar.'
 
   return `${config.system_prompt}
 
@@ -168,11 +168,12 @@ const TOOLS: ToolDef[] = [
         type: 'object',
         properties: {
           servicio: { type: 'string' },
-          inicio_iso: { type: 'string', description: 'Horario exacto (campo inicio_iso de consultar_disponibilidad)' },
+          fecha: { type: 'string', description: 'Fecha del turno en formato YYYY-MM-DD (campo fecha de consultar_disponibilidad)' },
+          hora: { type: 'string', description: 'Hora del turno en formato HH:MM 24h (uno de los horarios ofrecidos)' },
           nombre_cliente: { type: 'string' },
           telefono: { type: 'string' },
         },
-        required: ['servicio', 'inicio_iso', 'nombre_cliente', 'telefono'],
+        required: ['servicio', 'fecha', 'hora', 'nombre_cliente', 'telefono'],
       },
     },
   },
@@ -210,9 +211,10 @@ async function executeTool(
     if (!item || item.kind !== 'service') return JSON.stringify({ error: 'Servicio no encontrado en el catálogo.' })
     const days = await deps.getSlots(item.id)
     const compact = days.slice(0, 5).map((d) => ({
+      fecha: d.date, // YYYY-MM-DD — pasalo tal cual a reservar_turno
       dia: new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: AR_TZ }).format(new Date(`${d.date}T12:00:00-03:00`)),
-      // Todos los horarios del día (mañana y tarde), cap alto para no ocultar disponibilidad
-      horarios: d.slots.slice(0, 24).map((s) => ({ hora: s.label, inicio_iso: s.startsAt })),
+      // Horarios del día en HH:MM (mañana y tarde); cap alto para no ocultar disponibilidad.
+      horarios: d.slots.slice(0, 24).map((s) => s.label),
     }))
     if (compact.length === 0) return JSON.stringify({ servicio: item.name, mensaje: 'No hay horarios disponibles próximamente.' })
     return JSON.stringify({ servicio: item.name, duracion_min: item.duration_min, disponibilidad: compact })
@@ -222,22 +224,32 @@ async function executeTool(
     const item = findItem(catalog, String(args.servicio ?? ''))
     if (!item || item.kind !== 'service') return JSON.stringify({ ok: false, error: 'Servicio no encontrado.' })
 
-    // La IA a veces "reconstruye" el inicio_iso desde la hora que ve (y queda corrido por el huso).
-    // Validamos que sea EXACTAMENTE uno de los horarios realmente disponibles.
-    const inicioIso = String(args.inicio_iso ?? '')
+    // La IA pasa fecha (YYYY-MM-DD) + hora (HH:MM) en hora de Argentina; el SERVIDOR arma el
+    // instante correcto (offset -03:00) → así no hay errores de huso ni inicio_iso inventado.
+    const fecha = String(args.fecha ?? '')
+    const horaRaw = String(args.hora ?? '').trim()
+    const hora = /^\d:\d{2}$/.test(horaRaw) ? `0${horaRaw}` : horaRaw
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{2}:\d{2}$/.test(hora)) {
+      return JSON.stringify({
+        ok: false,
+        error: 'Fecha u hora inválida. Usá fecha YYYY-MM-DD y hora HH:MM de las que devolvió consultar_disponibilidad.',
+      })
+    }
+    const startsAt = new Date(`${fecha}T${hora}:00-03:00`).toISOString()
+
+    // Validar que sea un horario realmente disponible (no inventado ni ocupado).
     const days = await deps.getSlots(item.id)
-    const esHorarioReal = days.some((d) => d.slots.some((s) => s.startsAt === inicioIso))
+    const esHorarioReal = days.some((d) => d.slots.some((s) => s.startsAt === startsAt))
     if (!esHorarioReal) {
       return JSON.stringify({
         ok: false,
-        error:
-          'Ese horario no es válido. Volvé a llamar a consultar_disponibilidad y reservá copiando EXACTAMENTE el valor del campo inicio_iso del horario elegido (no lo reconstruyas a partir de la hora).',
+        error: 'Ese horario no está disponible. Volvé a llamar a consultar_disponibilidad y elegí una fecha y hora EXACTAS de las ofrecidas.',
       })
     }
 
     const res = await deps.book({
       serviceId: item.id,
-      startsAt: inicioIso,
+      startsAt,
       contactName: String(args.nombre_cliente ?? ''),
       contactPhone: String(args.telefono ?? ''),
     })
