@@ -221,9 +221,23 @@ async function executeTool(
   if (name === 'reservar_turno') {
     const item = findItem(catalog, String(args.servicio ?? ''))
     if (!item || item.kind !== 'service') return JSON.stringify({ ok: false, error: 'Servicio no encontrado.' })
+
+    // La IA a veces "reconstruye" el inicio_iso desde la hora que ve (y queda corrido por el huso).
+    // Validamos que sea EXACTAMENTE uno de los horarios realmente disponibles.
+    const inicioIso = String(args.inicio_iso ?? '')
+    const days = await deps.getSlots(item.id)
+    const esHorarioReal = days.some((d) => d.slots.some((s) => s.startsAt === inicioIso))
+    if (!esHorarioReal) {
+      return JSON.stringify({
+        ok: false,
+        error:
+          'Ese horario no es válido. Volvé a llamar a consultar_disponibilidad y reservá copiando EXACTAMENTE el valor del campo inicio_iso del horario elegido (no lo reconstruyas a partir de la hora).',
+      })
+    }
+
     const res = await deps.book({
       serviceId: item.id,
-      startsAt: String(args.inicio_iso ?? ''),
+      startsAt: inicioIso,
       contactName: String(args.nombre_cliente ?? ''),
       contactPhone: String(args.telefono ?? ''),
     })
