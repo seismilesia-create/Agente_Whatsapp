@@ -33,6 +33,8 @@ export interface AgentDeps {
     contactName?: string
     contactPhone: string
   }) => Promise<{ ok: boolean; error?: string }>
+  /** Marca la conversación para intervención humana (pausa el bot + alarma). */
+  escalate?: (motivo: string) => Promise<void>
 }
 
 const AR_TZ = 'America/Argentina/Buenos_Aires'
@@ -125,7 +127,7 @@ REGLAS QUE NO PODÉS ROMPER (valen para cualquier negocio):
 - CRÍTICO: confirmá al cliente que el turno quedó agendado SOLO si reservar_turno devolvió ok:true. Si devolvió un error (por ejemplo "ese horario no está disponible"), NO digas que quedó confirmado: pedí disculpas, volvé a consultar_disponibilidad y ofrecé horarios reales.
 
 4) ANTE LA DUDA, DERIVÁ A UN HUMANO.
-- Si no estás seguro de algo, si te piden algo que no podés resolver con las herramientas y los datos de abajo, si hay un reclamo o una situación delicada, o si el cliente pide hablar con una persona: NO inventes ni adivines. Derivá a alguien del equipo con el mensaje de transferencia. SIEMPRE es preferible derivar a un humano antes que dar información incorrecta o asumir algo.
+- Si no estás seguro de algo, si te piden algo que no podés resolver con las herramientas y los datos de abajo, si hay un reclamo o una situación delicada, o si el cliente pide hablar con una persona: NO inventes ni adivines. Usá la herramienta derivar_a_humano y avisale al cliente que un compañero del equipo va a seguir la conversación enseguida. SIEMPRE es preferible derivar a un humano antes que dar información incorrecta o asumir algo.
 
 5) ESTILO.
 - Español rioplatense, breve y natural, estilo WhatsApp. Emojis con moderación.
@@ -220,6 +222,19 @@ const TOOLS: ToolDef[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'derivar_a_humano',
+      description:
+        'Derivá la conversación a una persona del equipo cuando tengas dudas, no puedas resolver algo con las herramientas o los datos, haya un reclamo o una situación delicada, o el cliente pida hablar con alguien.',
+      parameters: {
+        type: 'object',
+        properties: { motivo: { type: 'string', description: 'Motivo breve de la derivación (para el equipo)' } },
+        required: ['motivo'],
+      },
+    },
+  },
 ]
 
 function findItem(catalog: CatalogItemWithMedia[], query: string): CatalogItemWithMedia | undefined {
@@ -296,6 +311,15 @@ async function executeTool(
       attachments.push({ url: m.url, type: m.type, caption: item.name })
     }
     return JSON.stringify({ enviados: item.media.length, mensaje: `Enviadas ${item.media.length} archivo(s) de ${item.name}.` })
+  }
+
+  if (name === 'derivar_a_humano') {
+    await deps.escalate?.(String(args.motivo ?? ''))
+    return JSON.stringify({
+      derivado: true,
+      instruccion:
+        'Respondé SOLO con un mensaje breve y cordial avisando que un compañero del equipo va a seguir la conversación enseguida. No intentes resolver la consulta vos.',
+    })
   }
 
   return JSON.stringify({ error: 'Herramienta desconocida' })

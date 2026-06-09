@@ -92,6 +92,7 @@ export interface Conversation {
   organization_id: string
   contact_id: string
   bot_paused: boolean
+  needs_human: boolean
   status: ConversationStatus
   assigned_to: string | null
   last_message_at: string
