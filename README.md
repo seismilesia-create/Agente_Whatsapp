@@ -1,170 +1,112 @@
-# SaaS Factory V4
+# Agente WhatsApp — SaaS de agentes con IA para turnos
 
-Template production-ready para crear aplicaciones SaaS con desarrollo asistido por IA. Filosofia Agent-First: el usuario dice que quiere, el agente construye todo.
+SaaS multi-tenant que vende **agentes de WhatsApp con IA** + dashboard de supervisión,
+enfocado en **turnos / servicios locales** (salud, estética, peluquería). El agente
+conversa de verdad (no son solo recordatorios): consulta disponibilidad, reserva turnos,
+manda fotos/videos del catálogo y deriva a un humano cuando hace falta.
 
-## Que incluye
+Este repo es el **muestrario / demo** para mostrar el producto a clientes potenciales.
 
-- Next.js 16 (App Router) + TypeScript
-- Supabase (Database + Auth + RLS)
-- Tailwind CSS + shadcn/ui
-- 19 Skills de Claude Code (V4 Skills 2.0)
-- Playwright CLI para QA automatizado
-- AI Templates (Vercel AI SDK v5 + OpenRouter)
-- 5 Design Systems listos para usar
-- Arquitectura Feature-First optimizada para IA
-- Auto-Blindaje: el sistema aprende de cada error
+---
 
-## Quick Start
+## Qué incluye
 
-### 1. Instalar
+**Backend del cliente** (lo que ve el negocio):
+- **Dashboard** con KPIs (conversaciones, % IA vs humano, contactos, turnos)
+- **Agenda** estilo Google Calendar (vistas Mes/Semana/Día, colores por servicio)
+- **Productos y Servicios** — catálogo con fotos/videos
+- **Conversaciones** — bandeja con toma humana (pausar/reactivar el bot)
+- **Contactos / CRM** — etiquetas, opt-in, recurrencia automática
+- **Configuración** — prompt del agente, tono, FAQs, horarios, datos del negocio
+- **Simulador** — probá el agente sin WhatsApp real (la pieza clave para demostrar)
+
+**Backend de super-admin** (`/admin`, god-mode): métricas globales, lista de clientes,
+switch de demo por rubro, on/off por agente, toggles de features/add-ons.
+
+**Stack:** Next.js 16 (App Router) + TypeScript · Supabase (Auth + DB + RLS + Storage) ·
+Tailwind · Vercel AI SDK / OpenRouter (default `google/gemini-2.5-flash`).
+
+---
+
+## Setup rápido
 
 ```bash
 npm install
+cp .env.local.example .env.local   # completá los valores (ver abajo)
+npm run dev                        # http://localhost:3000 (auto-detecta puerto)
 ```
 
-### 2. Variables de Entorno
+Para mostrar la demo sin tocar WhatsApp/Meta, alcanza con **Supabase + OpenRouter**:
+entrás al dashboard y usás el **Simulador** para conversar con el agente.
 
-```bash
-cp .env.example .env.local
-# Editar con credenciales de Supabase
-```
+### Variables de entorno
 
-### 3. MCPs (Opcional)
+Todas documentadas en [`.env.local.example`](.env.local.example). Mínimo para la demo:
 
-```bash
-cp .claude/example.mcp.json .mcp.json
-# Editar con project ref de Supabase
-```
+| Bloque | Variables | ¿Obligatorio? |
+|--------|-----------|---------------|
+| Supabase | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Sí |
+| IA | `LLM_PROVIDER`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | Sí |
+| Sitio | `NEXT_PUBLIC_SITE_URL` | Sí |
+| WhatsApp | `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_TEST_PHONE_NUMBER_ID`, `WHATSAPP_TEST_ACCESS_TOKEN` | Solo para WhatsApp en vivo |
+| Google Calendar | `GOOGLE_SA_CLIENT_EMAIL`, `GOOGLE_SA_PRIVATE_KEY`, `GOOGLE_CALENDAR_ID` | Opcional |
+| Cron | `CRON_SECRET` | Opcional |
 
-### 4. Desarrollar
+---
 
-```bash
-npm run dev
-# Auto-detecta puerto disponible (3000-3006)
-```
+## Base de datos
 
-## Tech Stack
+Migraciones en [`supabase/migrations/`](supabase/migrations/) (0001–0011), multi-tenant
+con RLS por `organization_id` desde el día 1. Aplicalas en orden sobre un proyecto
+Supabase limpio.
 
-```yaml
-Runtime: Node.js + TypeScript
-Framework: Next.js 16 (App Router)
-Database: PostgreSQL/Supabase
-Styling: Tailwind CSS 3.4
-Components: shadcn/ui
-State: Zustand
-Validation: Zod
-AI Engine: Vercel AI SDK v5 + OpenRouter
-Testing: Playwright CLI + MCP
-Deploy: Vercel
-```
+### Cuentas demo
 
-## Arquitectura Feature-First
+Tres negocios de ejemplo (un rubro cada uno) para mostrar a clientes. Se siembran en
+Supabase; el trigger `handle_new_user` crea org + profile + config automáticamente.
 
-```
-src/
-├── app/                      # Next.js App Router
-│   ├── (auth)/              # Rutas auth
-│   ├── (main)/              # Rutas principales
-│   └── layout.tsx
-│
-├── features/                 # Organizadas por funcionalidad
-│   └── [feature]/
-│       ├── components/
-│       ├── hooks/
-│       ├── services/
-│       ├── types/
-│       └── store/
-│
-└── shared/                   # Codigo reutilizable
-    ├── components/
-    ├── hooks/
-    ├── lib/
-    └── types/
-```
+---
 
-## Skills (19 total)
+## Demo con WhatsApp en vivo
 
-### Para el usuario
+El webhook (`/api/whatsapp`) está cableado a Meta Cloud API. Para mostrar el agente
+respondiendo a un WhatsApp real necesitás un **número de prueba** y un **token
+permanente**. Guía completa paso a paso, gotchas del token vencido y checklist de
+diagnóstico en **[`META_WHATSAPP.md`](META_WHATSAPP.md)**.
 
-| Skill | Que hace |
-|-------|----------|
-| `/new-app` | Entrevista de negocio → BUSINESS_LOGIC.md |
-| `/landing` | Landing page de alta conversion |
-| `/add-login` | Auth completo (Email + Google OAuth + profiles + RLS) |
-| `/bucle-agentico` | Implementar features complejas por fases |
-| `/sprint` | Tareas rapidas sin planificacion |
-| `/prp` | Planificar features complejas antes de implementar |
-| `/ai [template]` | Agregar IA: chat, RAG, vision, tools |
-| `/qa` | QA automatizado con Playwright CLI |
-| `/primer` | Inicializar contexto del proyecto |
-| `/update-sf` | Actualizar a ultima version |
-| `/eject-sf` | Remover SaaS Factory (destructivo) |
-| `/skill-creator` | Crear nuevos skills |
+El **switch de demo** (`/admin`) permite que un solo número de prueba responda como
+salud, estética o peluquería según lo que estés mostrando.
 
-### Automaticos (Claude los activa segun la tarea)
+---
 
-backend, frontend, supabase-admin, codebase-analyst, vercel-deployer, documentacion, calidad
+## Google Calendar (turnos espejados)
 
-## AI Templates
+Ya está integrado: al reservar un turno (por dashboard o por el agente) se crea el evento
+en un calendario compartido y se guarda el `google_event_id`; al cancelar, se borra. Los
+eventos se titulan `[Nombre del negocio] Servicio — Cliente` para distinguir los rubros en
+un mismo calendario. Se activa con solo completar las 3 variables `GOOGLE_*`:
 
-Bloques LEGO para construir features de IA con Vercel AI SDK v5 + OpenRouter:
+1. Creá (o usá) un **Service Account** en Google Cloud con la API de Calendar habilitada.
+2. **Compartí tu calendario** de demos con el email del Service Account, con permiso
+   *"Hacer cambios en eventos"*.
+3. Pegá el **ID del calendario** en `GOOGLE_CALENDAR_ID` y las credenciales del SA en
+   `GOOGLE_SA_CLIENT_EMAIL` / `GOOGLE_SA_PRIVATE_KEY`.
 
-| Template | Que hace |
-|----------|----------|
-| setup-base | Configuracion inicial |
-| chat | Chat streaming con useChat |
-| web-search | Busqueda con :online |
-| historial | Persistencia en Supabase |
-| vision | Analisis de imagenes |
-| tools | Funciones/herramientas |
-| rag | pgvector + embeddings |
-| single-call | generateText() puntual |
-| structured-outputs | generateObject() con Zod |
-| generative-ui | LLM decide que componente renderizar |
+---
 
-## Design Systems
+## Documentación interna
 
-5 sistemas visuales listos en `.claude/design-systems/`:
+- [`BUSINESS_LOGIC.md`](BUSINESS_LOGIC.md) — lógica de negocio, usuarios, roadmap.
+- [`RESUMEN_PROYECTO.md`](RESUMEN_PROYECTO.md) — resumen ejecutivo y modelo de negocio.
+- [`META_WHATSAPP.md`](META_WHATSAPP.md) — todo sobre la conexión con Meta WhatsApp.
 
-- **Liquid Glass** - iOS-like, transparencias
-- **Gradient Mesh** - Degradados fluidos
-- **Neumorphism** - Soft UI, sombras suaves
-- **Bento Grid** - Grids asimetricos
-- **Neobrutalism** - Bold, bordes duros
+---
 
 ## Comandos
 
 ```bash
-npm run dev          # Desarrollo (auto-port 3000-3006)
-npm run build        # Build produccion
-npm run typecheck    # TypeScript check
+npm run dev          # Servidor de desarrollo
+npm run build        # Build de producción
+npm run typecheck    # Verificar tipos
 npm run lint         # ESLint
 ```
-
-## Deploy
-
-```bash
-# Vercel (recomendado)
-npm install -g vercel
-vercel
-```
-
-Variables en Vercel Dashboard:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-## Estructura .claude/
-
-```
-.claude/
-├── skills/              # 19 Skills (V4 Skills 2.0)
-├── PRPs/                # Product Requirements Proposals
-│   │   └── references/  # AI Templates (11 bloques)
-├── design-systems/      # 5 sistemas de diseno
-├── hooks/               # Scripts en eventos
-└── example.mcp.json     # Config de MCPs
-```
-
----
-
-**SaaS Factory V4** | Agent-First. Todo es un Skill.

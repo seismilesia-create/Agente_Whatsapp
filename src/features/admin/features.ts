@@ -17,6 +17,5 @@ export const FEATURES: FeatureDef[] = [
     key: 'google_calendar',
     label: 'Google Calendar',
     description: 'Espeja los turnos en un Google Calendar compartido.',
-    comingSoon: true,
   },
 ]
