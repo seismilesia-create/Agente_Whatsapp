@@ -53,8 +53,12 @@ export async function applyPresetAction(presetKey: string): Promise<PresetState>
     preset.services.map((s) => ({
       organization_id: orgId,
       name: s.name,
+      kind: s.kind ?? 'service',
       duration_min: s.duration_min,
       price: s.price,
+      description: s.description ?? null,
+      color: s.color ?? null,
+      stock: s.stock ?? null,
     })),
   )
   if (svcErr) return { error: 'No se pudieron cargar los servicios' }
