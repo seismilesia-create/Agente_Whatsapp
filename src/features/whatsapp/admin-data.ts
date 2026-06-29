@@ -116,8 +116,24 @@ export async function createAppointmentAdmin(
   db: SupabaseClient,
   orgId: string,
   organizationName: string,
-  input: { serviceId: string; startsAt: string; contactName?: string; contactPhone: string },
+  input: {
+    serviceId: string
+    startsAt: string
+    contactName?: string
+    contactPhone: string
+    dni?: string
+    obraSocial?: string
+  },
+  requirements?: { requireDni?: boolean; requireInsurance?: boolean },
 ): Promise<{ ok: boolean; error?: string }> {
+  // Datos obligatorios según la config del negocio (el bot vuelve a pedirlos si faltan).
+  if (requirements?.requireDni && !input.dni?.trim()) {
+    return { ok: false, error: 'Falta el DNI del paciente. Pedíselo y reintentá la reserva.' }
+  }
+  if (requirements?.requireInsurance && !input.obraSocial?.trim()) {
+    return { ok: false, error: 'Falta la obra social (o "particular"). Preguntásela y reintentá la reserva.' }
+  }
+
   const { data: service } = await db
     .from('services')
     .select('*')
@@ -160,11 +176,27 @@ export async function createAppointmentAdmin(
     .eq('organization_id', orgId)
     .eq('phone', input.contactPhone)
     .maybeSingle()
-  if (existing) contactId = (existing as { id: string }).id
-  else {
+  const dni = input.dni?.trim() || null
+  const obraSocial = input.obraSocial?.trim() || null
+  if (existing) {
+    contactId = (existing as { id: string }).id
+    // Completar/actualizar datos del paciente (solo lo que vino, sin pisar con vacío).
+    const patch: Record<string, string> = {}
+    if (input.contactName?.trim()) patch.name = input.contactName.trim()
+    if (dni) patch.dni = dni
+    if (obraSocial) patch.obra_social = obraSocial
+    if (Object.keys(patch).length > 0) await db.from('contacts').update(patch).eq('id', contactId)
+  } else {
     const { data: created } = await db
       .from('contacts')
-      .insert({ organization_id: orgId, phone: input.contactPhone, name: input.contactName ?? null, status: 'new' })
+      .insert({
+        organization_id: orgId,
+        phone: input.contactPhone,
+        name: input.contactName ?? null,
+        dni,
+        obra_social: obraSocial,
+        status: 'new',
+      })
       .select('id')
       .single()
     contactId = (created as { id: string } | null)?.id ?? null

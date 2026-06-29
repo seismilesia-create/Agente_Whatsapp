@@ -25,6 +25,8 @@ interface ConfigFormProps {
 export function ConfigForm({ config, hours, exceptions, holidays, confirmationEnabled }: ConfigFormProps) {
   const [state, formAction] = useActionState(updateBusinessConfigAction, initial)
   const [faqs, setFaqs] = useState<Faq[]>(config.faqs ?? [])
+  const [requireDni, setRequireDni] = useState<boolean>(config.require_dni ?? true)
+  const [requireInsurance, setRequireInsurance] = useState<boolean>(config.require_insurance ?? false)
 
   const addFaq = () => setFaqs((f) => [...f, { q: '', a: '' }])
   const removeFaq = (i: number) => setFaqs((f) => f.filter((_, idx) => idx !== i))
@@ -35,6 +37,9 @@ export function ConfigForm({ config, hours, exceptions, holidays, confirmationEn
     <form action={formAction} className="space-y-6">
       {/* FAQs serializadas para el server action */}
       <input type="hidden" name="faqs" value={JSON.stringify(faqs)} />
+      {/* Flags de reserva (controlados, siempre envían true/false) */}
+      <input type="hidden" name="require_dni" value={String(requireDni)} />
+      <input type="hidden" name="require_insurance" value={String(requireInsurance)} />
 
       {/* Identidad del agente */}
       <Card>
@@ -84,6 +89,44 @@ export function ConfigForm({ config, hours, exceptions, holidays, confirmationEn
               <Input id="address" name="address" defaultValue={config.address ?? ''} placeholder="Av. Siempre Viva 123" />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Datos que pide el agente al reservar */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos para reservar turnos</CardTitle>
+          <CardDescription>Qué información le pide el agente al cliente antes de confirmar un turno.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-primary"
+              checked={requireDni}
+              onChange={(e) => setRequireDni(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium">Pedir nombre, apellido y DNI</span>
+              <span className="block text-xs text-muted-foreground">
+                Obligatorio para reservar. Sirve para individualizar al paciente/cliente.
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-primary"
+              checked={requireInsurance}
+              onChange={(e) => setRequireInsurance(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium">Pedir obra social</span>
+              <span className="block text-xs text-muted-foreground">
+                Recomendado para rubros de salud. El agente pregunta si tiene obra social y cuál.
+              </span>
+            </span>
+          </label>
         </CardContent>
       </Card>
 

@@ -14,6 +14,8 @@ export const businessConfigSchema = z.object({
   faqs: z.array(faqSchema).default([]),
   greeting_message: z.string().min(1, 'Ingresá el saludo inicial'),
   handoff_message: z.string().min(1, 'Ingresá el mensaje de transferencia a humano'),
+  require_dni: z.boolean().default(true),
+  require_insurance: z.boolean().default(false),
 })
 
 export type BusinessConfigInput = z.infer<typeof businessConfigSchema>

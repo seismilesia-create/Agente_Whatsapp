@@ -88,6 +88,8 @@ export async function updateBusinessConfigAction(
     faqs,
     greeting_message: formData.get('greeting_message'),
     handoff_message: formData.get('handoff_message'),
+    require_dni: formData.get('require_dni') === 'true',
+    require_insurance: formData.get('require_insurance') === 'true',
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Datos inválidos' }
@@ -113,6 +115,8 @@ export async function updateBusinessConfigAction(
     faqs: parsed.data.faqs,
     greeting_message: parsed.data.greeting_message,
     handoff_message: parsed.data.handoff_message,
+    require_dni: parsed.data.require_dni,
+    require_insurance: parsed.data.require_insurance,
   }
 
   // Formato de hora preferido (12h/24h) para mostrar los horarios.

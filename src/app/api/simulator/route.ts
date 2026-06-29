@@ -82,7 +82,11 @@ export async function POST(req: Request) {
       catalog,
       deps: {
         getSlots: (serviceId) => getAvailableSlots(serviceId),
-        book: (input) => createAppointment(input).then((r) => ({ ok: r.ok, error: r.error })),
+        book: (input) =>
+          createAppointment(input, {
+            requireDni: config.require_dni,
+            requireInsurance: config.require_insurance,
+          }).then((r) => ({ ok: r.ok, error: r.error })),
         // Derivación a humano: pausa el bot y marca la conversación en rojo.
         escalate: async () => {
           if (!conversationId) return

@@ -54,6 +54,8 @@ export interface BusinessConfig {
   confirmation_hours_before: number
   confirmation_message: string | null
   time_format: '12h' | '24h'
+  require_dni: boolean
+  require_insurance: boolean
   updated_at: string
   created_at: string
 }
@@ -77,6 +79,8 @@ export interface Contact {
   name: string | null
   last_name: string | null
   email: string | null
+  dni: string | null
+  obra_social: string | null
   birthday: string | null // 'YYYY-MM-DD'
   notes: string | null
   tags: string[]

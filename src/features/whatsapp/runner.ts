@@ -125,7 +125,14 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
       deps: {
         getSlots: (serviceId) => getAvailableSlotsAdmin(db, orgId, serviceId),
         // El teléfono real es el número de WhatsApp del cliente, no lo que extraiga la IA.
-        book: (input) => createAppointmentAdmin(db, orgId, org.name, { ...input, contactPhone: incoming.from }),
+        book: (input) =>
+          createAppointmentAdmin(
+            db,
+            orgId,
+            org.name,
+            { ...input, contactPhone: incoming.from },
+            { requireDni: config.require_dni, requireInsurance: config.require_insurance },
+          ),
         // Derivación a humano: pausa el bot y marca la conversación en rojo.
         escalate: async () => {
           await db
@@ -149,13 +156,27 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
   }
   for (const att of result.attachments) {
     if (att.type === 'image') {
-      await sendWhatsAppImage({
+      // WhatsApp no acepta webp en mensajes de imagen → convertir a JPEG al vuelo.
+      const isWebp = /\.webp(\?|$)/i.test(att.url)
+      const imageUrl = isWebp
+        ? toAbsoluteUrl(`/api/media/jpeg?src=${encodeURIComponent(att.url)}`)
+        : toAbsoluteUrl(att.url)
+      const ok = await sendWhatsAppImage({
         phoneNumberId,
         accessToken,
         to: incoming.from,
-        imageUrl: toAbsoluteUrl(att.url),
+        imageUrl,
         caption: att.caption,
       })
+      // Si falla el envío, ser honesto en vez de dejar al cliente esperando una foto que no llega.
+      if (!ok) {
+        await sendWhatsAppText({
+          phoneNumberId,
+          accessToken,
+          to: incoming.from,
+          text: `No pude adjuntar la imagen de ${att.caption} por acá. Un compañero del equipo te la pasa enseguida. 🙏`,
+        })
+      }
     }
   }
 }

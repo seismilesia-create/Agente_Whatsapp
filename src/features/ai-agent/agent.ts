@@ -32,6 +32,8 @@ export interface AgentDeps {
     startsAt: string
     contactName?: string
     contactPhone: string
+    dni?: string
+    obraSocial?: string
   }) => Promise<{ ok: boolean; error?: string }>
   /** Marca la conversación para intervención humana (pausa el bot + alarma). */
   escalate?: (motivo: string) => Promise<void>
@@ -151,7 +153,23 @@ export function buildSystemPrompt(params: {
     : ''
   const reservarInstruction = contactPhone
     ? '- El TELÉFONO del cliente ya lo tenés (ver DATOS DEL CLIENTE): usalo para reservar y NO se lo pidas.'
-    : '- Para reservar pedí también el nombre y el teléfono del cliente si no los tenés.'
+    : '- Para reservar pedí también el teléfono del cliente si no lo tenés.'
+
+  // Datos obligatorios para reservar, según la configuración del negocio.
+  const obligatorios: string[] = []
+  if (config.require_dni) {
+    obligatorios.push(
+      'Antes de reservar SIEMPRE pedí y confirmá el NOMBRE, el APELLIDO y el DNI de la persona (sirve para individualizar al paciente/cliente). Son OBLIGATORIOS: no llames a reservar_turno sin esos tres datos.',
+    )
+  }
+  if (config.require_insurance) {
+    obligatorios.push(
+      'Preguntá también si tiene OBRA SOCIAL y cuál. Es OBLIGATORIO para reservar: si no la tiene, que te lo aclare ("particular"/"sin obra social") y registralo igual.',
+    )
+  }
+  const datosObligatoriosBlock = obligatorios.length
+    ? `\n══════════ DATOS OBLIGATORIOS PARA RESERVAR ══════════\n${obligatorios.map((o) => `- ${o}`).join('\n')}\n`
+    : ''
 
   return `${BASE_SYSTEM_PROMPT}
 
@@ -171,7 +189,7 @@ ${catalogToText(catalog)}
 
 ══════════ PREGUNTAS FRECUENTES ══════════
 ${faqs || '(sin FAQs)'}
-
+${datosObligatoriosBlock}
 ══════════ RECORDATORIOS ══════════
 - Los HORARIOS DE ATENCIÓN son la referencia; informalos si preguntan. Nunca ofrezcas turnos en días o fechas cerradas (feriados, vacaciones).
 ${reservarInstruction}
@@ -196,14 +214,17 @@ const TOOLS: ToolDef[] = [
     type: 'function',
     function: {
       name: 'reservar_turno',
-      description: 'Reserva un turno en un horario disponible. Confirmar datos con el cliente antes de llamar.',
+      description: 'Reserva un turno en un horario disponible. Confirmar datos con el cliente antes de llamar. Incluí el DNI y la obra social si el negocio los exige (ver DATOS OBLIGATORIOS PARA RESERVAR).',
       parameters: {
         type: 'object',
         properties: {
           servicio: { type: 'string' },
           fecha: { type: 'string', description: 'Fecha del turno en formato YYYY-MM-DD (campo fecha de consultar_disponibilidad)' },
           hora: { type: 'string', description: 'Hora del turno en formato HH:MM 24h (uno de los horarios ofrecidos)' },
-          nombre_cliente: { type: 'string' },
+          nombre_cliente: { type: 'string', description: 'Nombre de pila del paciente/cliente' },
+          apellido: { type: 'string', description: 'Apellido del paciente/cliente' },
+          dni: { type: 'string', description: 'DNI del paciente/cliente (solo dígitos). Obligatorio si el negocio lo exige.' },
+          obra_social: { type: 'string', description: 'Obra social y plan si corresponde, o "particular" si no tiene. Obligatorio en rubros de salud.' },
           telefono: { type: 'string' },
         },
         required: ['servicio', 'fecha', 'hora', 'nombre_cliente', 'telefono'],
@@ -293,11 +314,17 @@ async function executeTool(
       })
     }
 
+    const nombre = String(args.nombre_cliente ?? '').trim()
+    const apellido = String(args.apellido ?? '').trim()
+    const dni = String(args.dni ?? '').trim()
+    const obraSocial = String(args.obra_social ?? '').trim()
     const res = await deps.book({
       serviceId: item.id,
       startsAt,
-      contactName: String(args.nombre_cliente ?? ''),
+      contactName: [nombre, apellido].filter(Boolean).join(' '),
       contactPhone: String(args.telefono ?? ''),
+      dni: dni || undefined,
+      obraSocial: obraSocial || undefined,
     })
     if (!res.ok) return JSON.stringify({ ok: false, error: res.error })
     return JSON.stringify({ ok: true, mensaje: `Turno confirmado para ${item.name}.` })

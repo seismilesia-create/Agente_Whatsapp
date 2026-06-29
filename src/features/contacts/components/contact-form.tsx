@@ -62,6 +62,17 @@ export function ContactForm({ contact, onDone }: { contact?: Contact; onDone: ()
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
+              <Label htmlFor="dni">DNI</Label>
+              <Input id="dni" name="dni" defaultValue={contact?.dni ?? ''} placeholder="30123456" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="obra_social">Obra social</Label>
+              <Input id="obra_social" name="obra_social" defaultValue={contact?.obra_social ?? ''} placeholder="OSDE 210 / Particular" />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="birthday">Cumpleaños</Label>
               <Input id="birthday" name="birthday" type="date" defaultValue={contact?.birthday ?? ''} className="max-w-[200px]" />
             </div>

@@ -164,11 +164,13 @@ export async function getAppointmentsInRange(fromIso: string, toIso: string): Pr
   })
 }
 
-/** Busca o crea un contacto por teléfono dentro de la organización. */
+/** Busca o crea un contacto por teléfono, completando DNI/obra social si vinieron. */
 async function upsertContact(
   organizationId: string,
   phone: string,
   name?: string,
+  dni?: string | null,
+  obraSocial?: string | null,
 ): Promise<string | null> {
   const supabase = await createClient()
   const { data: existing } = await supabase
@@ -176,11 +178,25 @@ async function upsertContact(
     .select('id')
     .eq('phone', phone)
     .maybeSingle<{ id: string }>()
-  if (existing) return existing.id
+  if (existing) {
+    const patch: Record<string, string> = {}
+    if (name?.trim()) patch.name = name.trim()
+    if (dni) patch.dni = dni
+    if (obraSocial) patch.obra_social = obraSocial
+    if (Object.keys(patch).length > 0) await supabase.from('contacts').update(patch).eq('id', existing.id)
+    return existing.id
+  }
 
   const { data: created } = await supabase
     .from('contacts')
-    .insert({ organization_id: organizationId, phone, name: name ?? null, status: 'new' })
+    .insert({
+      organization_id: organizationId,
+      phone,
+      name: name ?? null,
+      dni: dni ?? null,
+      obra_social: obraSocial ?? null,
+      status: 'new',
+    })
     .select('id')
     .single<{ id: string }>()
   return created?.id ?? null
@@ -191,6 +207,8 @@ export interface CreateAppointmentInput {
   startsAt: string // ISO
   contactPhone: string
   contactName?: string
+  dni?: string
+  obraSocial?: string
   notes?: string
 }
 
@@ -203,9 +221,19 @@ export interface CreateAppointmentResult {
 /**
  * Reserva un turno. Valida que el slot siga libre (no overbooking) antes de insertar.
  */
-export async function createAppointment(input: CreateAppointmentInput): Promise<CreateAppointmentResult> {
+export async function createAppointment(
+  input: CreateAppointmentInput,
+  requirements?: { requireDni?: boolean; requireInsurance?: boolean },
+): Promise<CreateAppointmentResult> {
   const ctx = await getSessionContext()
   if (!ctx) return { ok: false, error: 'Sesión expirada' }
+  // Datos obligatorios según la config del negocio (el bot vuelve a pedirlos si faltan).
+  if (requirements?.requireDni && !input.dni?.trim()) {
+    return { ok: false, error: 'Falta el DNI del paciente. Pedíselo y reintentá la reserva.' }
+  }
+  if (requirements?.requireInsurance && !input.obraSocial?.trim()) {
+    return { ok: false, error: 'Falta la obra social (o "particular"). Preguntásela y reintentá la reserva.' }
+  }
   const supabase = await createClient()
   const orgId = ctx.organization.id
 
@@ -232,7 +260,13 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     return { ok: false, error: 'Ese horario ya fue tomado. Probá con otro.' }
   }
 
-  const contactId = await upsertContact(orgId, input.contactPhone, input.contactName)
+  const contactId = await upsertContact(
+    orgId,
+    input.contactPhone,
+    input.contactName,
+    input.dni?.trim() || null,
+    input.obraSocial?.trim() || null,
+  )
 
   const { data: appt, error } = await supabase
     .from('appointments')
