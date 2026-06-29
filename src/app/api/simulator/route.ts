@@ -10,6 +10,7 @@ import {
   getScheduleExceptions,
 } from '@/features/appointments/services'
 import { createSimConversation, addMessage } from '@/features/conversations/services'
+import { createClient } from '@/lib/supabase/server'
 import type { ChatMessage } from '@/lib/openrouter'
 
 interface Body {
@@ -82,9 +83,23 @@ export async function POST(req: Request) {
       deps: {
         getSlots: (serviceId) => getAvailableSlots(serviceId),
         book: (input) => createAppointment(input).then((r) => ({ ok: r.ok, error: r.error })),
+        // Derivación a humano: pausa el bot y marca la conversación en rojo.
+        escalate: async () => {
+          if (!conversationId) return
+          const supabase = await createClient()
+          await supabase
+            .from('conversations')
+            .update({ bot_paused: true, needs_human: true })
+            .eq('id', conversationId)
+        },
       },
     })
   } catch (e) {
+    // El bot no pudo responder → marcar para intervención humana (rojo).
+    if (conversationId) {
+      const supabase = await createClient()
+      await supabase.from('conversations').update({ needs_human: true }).eq('id', conversationId)
+    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Error del agente' },
       { status: 502 },

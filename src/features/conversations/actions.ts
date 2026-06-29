@@ -17,7 +17,12 @@ function revalidate(conversationId: string) {
 /** Pausa o reactiva el bot en una conversación (toma humana). */
 export async function toggleBotPausedAction(conversationId: string, paused: boolean): Promise<void> {
   const supabase = await createClient()
-  await supabase.from('conversations').update({ bot_paused: paused }).eq('id', conversationId)
+  // Pausar = un humano toma el control (amarillo). Reactivar = vuelve al bot (verde).
+  // En ambos casos la conversación deja de "necesitar" un humano: lo tiene o vuelve al bot.
+  await supabase
+    .from('conversations')
+    .update({ bot_paused: paused, needs_human: false })
+    .eq('id', conversationId)
   revalidate(conversationId)
 }
 
@@ -43,10 +48,11 @@ export async function sendHumanMessageAction(_prev: SendState, formData: FormDat
   })
   if (error) return { error: 'No se pudo enviar el mensaje' }
 
-  // Tomar el control: pausar el bot y refrescar la marca de actividad.
+  // Tomar el control: pausar el bot (amarillo), bajar la alerta de "necesita humano"
+  // (ya lo tiene) y refrescar la marca de actividad.
   await supabase
     .from('conversations')
-    .update({ bot_paused: true, last_message_at: new Date().toISOString() })
+    .update({ bot_paused: true, needs_human: false, last_message_at: new Date().toISOString() })
     .eq('id', conversationId)
 
   // Envío real por WhatsApp (best-effort). En producción usaría las credenciales de la org.
@@ -78,6 +84,9 @@ export async function setConversationStatusAction(
   status: 'open' | 'closed',
 ): Promise<void> {
   const supabase = await createClient()
-  await supabase.from('conversations').update({ status }).eq('id', conversationId)
+  // Cerrar → azul. Reabrir → vuelve al bot en verde (sin alertas ni pausa).
+  const patch =
+    status === 'open' ? { status, bot_paused: false, needs_human: false } : { status }
+  await supabase.from('conversations').update(patch).eq('id', conversationId)
   revalidate(conversationId)
 }

@@ -160,7 +160,7 @@ ${config.system_prompt}
 
 ══════════ DATOS DEL NEGOCIO ══════════
 - Negocio: ${config.business_name || organizationName}
-- Hoy es: ${nowAR()} (hora de Argentina)
+${config.address ? `- Dirección: ${config.address}\n` : ''}- Hoy es: ${nowAR()} (hora de Argentina)
 - Tono: ${config.tone}
 
 ${clienteBlock}══════════ HORARIOS DE ATENCIÓN ══════════

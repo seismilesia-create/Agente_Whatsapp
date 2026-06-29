@@ -126,10 +126,19 @@ export async function handleIncomingWhatsApp(payload: unknown): Promise<void> {
         getSlots: (serviceId) => getAvailableSlotsAdmin(db, orgId, serviceId),
         // El teléfono real es el número de WhatsApp del cliente, no lo que extraiga la IA.
         book: (input) => createAppointmentAdmin(db, orgId, org.name, { ...input, contactPhone: incoming.from }),
+        // Derivación a humano: pausa el bot y marca la conversación en rojo.
+        escalate: async () => {
+          await db
+            .from('conversations')
+            .update({ bot_paused: true, needs_human: true })
+            .eq('id', conversationId)
+        },
       },
     })
   } catch (e) {
     console.error('Agent error (whatsapp):', e)
+    // El bot no pudo responder → marcar para intervención humana (rojo).
+    await db.from('conversations').update({ needs_human: true }).eq('id', conversationId)
     return
   }
 

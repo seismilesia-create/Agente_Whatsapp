@@ -66,6 +66,7 @@ export interface ConversationContact {
 export interface ConversationListItem {
   id: string
   bot_paused: boolean
+  needs_human: boolean
   status: ConversationStatus
   last_message_at: string
   contact: ConversationContact | null
@@ -100,7 +101,7 @@ export async function getConversations(): Promise<ConversationListItem[]> {
   const supabase = await createClient()
   const { data } = await supabase
     .from('conversations')
-    .select('id, bot_paused, status, last_message_at, contact:contacts(id, name, last_name, phone)')
+    .select('id, bot_paused, needs_human, status, last_message_at, contact:contacts(id, name, last_name, phone)')
     .order('last_message_at', { ascending: false })
     .limit(100)
 
@@ -108,6 +109,7 @@ export async function getConversations(): Promise<ConversationListItem[]> {
     (data as {
       id: string
       bot_paused: boolean
+      needs_human: boolean
       status: ConversationStatus
       last_message_at: string
       contact: unknown
@@ -129,6 +131,7 @@ export async function getConversations(): Promise<ConversationListItem[]> {
   return rows.map((r) => ({
     id: r.id,
     bot_paused: r.bot_paused,
+    needs_human: r.needs_human,
     status: r.status,
     last_message_at: r.last_message_at,
     contact: firstContact(r.contact),
